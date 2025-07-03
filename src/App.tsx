@@ -28,7 +28,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Authenticator>
-        <Router>
+        <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<Navigate to="/tealine" replace />} />
