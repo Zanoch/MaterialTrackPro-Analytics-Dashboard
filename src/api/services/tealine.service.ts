@@ -127,8 +127,8 @@ export const tealineService = {
       
       console.log('📡 [INVENTORY-COMPLETE] Response received');
       
-      // Handle response structure
-      const data = response?.data || response;
+      // Handle response structure - the response should already be the complete structure
+      const data = response;
       
       // Return the complete response structure including meta data
       if (data?.success) {

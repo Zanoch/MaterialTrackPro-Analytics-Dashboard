@@ -103,11 +103,11 @@ export const blendsheetService = {
   },
 
   // Get paginated blendsheets with optimized performance
-  getBlendsheetsPaginated: async (params?: {
-    page?: number;
-    limit?: number;
+  getBlendsheetsPaginated: async (params: {
+    page: number;
+    limit: number;
     filters?: FilterType;
-  }): Promise<{
+  } = {page: 1, limit: 25}): Promise<{
     data: BlendsheetData[];
     pagination: {
       page: number;
@@ -118,9 +118,9 @@ export const blendsheetService = {
   }> => {
     try {
       const response = await amplifyApiClient.get(API_ENDPOINTS.BLENDSHEET.PAGINATED, {
-        page: params?.page || 1,
-        limit: params?.limit || 50,
-        ...params?.filters,
+        page: params.page,
+        limit: params.limit,
+        ...params.filters,
       });
 
       // Expected response format from backend:
@@ -129,9 +129,9 @@ export const blendsheetService = {
       //   pagination: { page, limit, total, totalPages }
       // }
       
-      // Handle response structure
-      const responseData = response?.data || response;
-      const items = responseData?.data || responseData || [];
+      // Handle response structure  
+      const responseData = response;
+      const items = responseData?.data || [];
       
       const transformedData = items.map((item: BlendsheetItem) => {
         // Use actual target weight from API, fallback to calculated weight based on batches
@@ -152,11 +152,11 @@ export const blendsheetService = {
 
       return {
         data: transformedData,
-        pagination: responseData?.pagination || {
-          page: params?.page || 1,
-          limit: params?.limit || 50,
-          total: items.length,
-          totalPages: Math.ceil(items.length / (params?.limit || 50))
+        pagination: {
+          page: responseData?.pagination.page || params.page,
+          limit: responseData?.pagination.limit || params.limit,
+          total: responseData?.pagination.total || items.length,
+          totalPages: responseData?.pagination.pages || 0
         }
       };
     } catch (error) {
@@ -164,8 +164,8 @@ export const blendsheetService = {
       
       // Fallback to existing method with client-side pagination
       const allData = await blendsheetService.getBlendsheets(params?.filters);
-      const page = params?.page || 1;
-      const limit = params?.limit || 50;
+      const page = params.page;
+      const limit = params.limit;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       

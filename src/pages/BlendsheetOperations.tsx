@@ -55,8 +55,8 @@ export function BlendsheetOperations() {
     page: currentPage,
     limit: itemsPerPage,
     filters: {
-      status: statusFilter || undefined,
-      search: searchTerm || undefined,
+      ...(statusFilter && { status: statusFilter }),
+      ...(searchTerm && { search: searchTerm }),
     },
   });
 
@@ -83,8 +83,8 @@ export function BlendsheetOperations() {
 
   const apiData = paginatedResponse?.data || [];
   const pagination = paginatedResponse?.pagination || {
-    page: 1,
-    limit: 25,
+    page: currentPage,
+    limit: itemsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -393,91 +393,91 @@ export function BlendsheetOperations() {
         <Card>
           <CardHeader>
             <CardTitle>
-              Blendsheets ({totalItems} total, showing {displayData.length})
+              Blendsheets ({totalItems} total, showing {(currentPage - 1) * itemsPerPage + 1} - {currentPage * itemsPerPage})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-6 py-3">Blendsheet Code</TableHead>
-                  <TableHead className="px-6 py-3">Status</TableHead>
-                  <TableHead className="px-6 py-3">Target Weight</TableHead>
-                  <TableHead className="px-6 py-3">Progress</TableHead>
-                  <TableHead className="px-6 py-3">Efficiency</TableHead>
-                  <TableHead className="px-6 py-3">Batches</TableHead>
-                  <TableHead className="px-6 py-3">Created</TableHead>
-                  <TableHead className="px-6 py-3">Completed</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.isArray(displayData) &&
-                  displayData.map((item: BlendsheetData) => {
-                    if (!item || !item.blendsheet_no) return null;
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="px-6 py-3">Blendsheet Code</TableHead>
+                      <TableHead className="px-6 py-3">Status</TableHead>
+                      <TableHead className="px-6 py-3">Target Weight</TableHead>
+                      <TableHead className="px-6 py-3">Progress</TableHead>
+                      <TableHead className="px-6 py-3">Efficiency</TableHead>
+                      <TableHead className="px-6 py-3">Batches</TableHead>
+                      <TableHead className="px-6 py-3">Created</TableHead>
+                      <TableHead className="px-6 py-3">Completed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.isArray(displayData) &&
+                      displayData.map((item: BlendsheetData) => {
+                        if (!item || !item.blendsheet_no) return null;
 
-                    return (
-                      <TableRow key={item.blendsheet_no}>
-                        <TableCell className="px-6 py-4 font-medium">
-                          {item.blendsheet_no}
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          {getStatusBadge(item.status || "DRAFT")}
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          {formatWeight(item.target_weight)}
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-tea-600 h-2 rounded-full"
-                                style={{
-                                  width: `${Math.min(100, Math.max(0, item.progress || 0))}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-600">
-                              {formatPercentage(item.progress)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          <span
-                            className={
-                              (item.efficiency || 0) > 95
-                                ? "text-green-600 font-medium"
-                                : (item.efficiency || 0) > 90
-                                ? "text-amber-600"
-                                : "text-red-600"
-                            }
-                          >
-                            {formatPercentage(item.efficiency)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-6 py-4">
-                          {item.created_batches || 0}/{item.no_of_batches || 0}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-sm text-gray-600">
-                          {item.created_date ? formatDate(item.created_date.getTime()) : "-"}
-                        </TableCell>
-                        <TableCell className="px-6 py-4 text-sm text-gray-600">
-                          {item.completed_date ? formatDate(item.completed_date.getTime()) : "-"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
+                        return (
+                          <TableRow key={item.blendsheet_no}>
+                            <TableCell className="px-6 py-4 font-medium">
+                              {item.blendsheet_no}
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              {getStatusBadge(item.status || "DRAFT")}
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              {formatWeight(item.target_weight)}
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-tea-600 h-2 rounded-full"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, item.progress || 0))}%`,
+                                    }}
+                                  ></div>
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                  {formatPercentage(item.progress)}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              <span
+                                className={
+                                  (item.efficiency || 0) > 95
+                                    ? "text-green-600 font-medium"
+                                    : (item.efficiency || 0) > 90
+                                    ? "text-amber-600"
+                                    : "text-red-600"
+                                }
+                              >
+                                {formatPercentage(item.efficiency)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              {item.created_batches || 0}/{item.no_of_batches || 0}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-sm text-gray-600">
+                              {item.created_date ? formatDate(item.created_date.getTime()) : "-"}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-sm text-gray-600">
+                              {item.completed_date ? formatDate(item.completed_date.getTime()) : "-"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
 
-            {/* Pagination */}
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-            />
+                {/* Pagination */}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                />
           </CardContent>
         </Card>
       )}
