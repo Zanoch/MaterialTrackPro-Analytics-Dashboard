@@ -49,9 +49,9 @@ export const useAdminBlendsheets = (filters?: BlendsheetFilters) => {
   });
 };
 
-export const useBlendsheetsPaginated = (params?: {
-  page?: number;
-  limit?: number;
+export const useBlendsheetsPaginated = (params: {
+  page: number;
+  limit: number;
   filters?: BlendsheetFilters;
 }) => {
   return useQuery({
