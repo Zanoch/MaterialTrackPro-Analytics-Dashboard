@@ -4,12 +4,12 @@ import { cn } from '../../lib/utils';
 import { useAppStore } from '../../store';
 
 const menuItems = [
-  { path: '/tealine', label: 'Tealine', icon: Package },
+  { path: '/inventory', label: 'Tealine Inventory (S)', icon: Warehouse },
+  { path: '/pending-tealine', label: 'Pending Tealine', icon: Package },
   { path: '/blendsheet', label: 'Blend Operations', icon: Leaf },
   { path: '/blendbalance', label: 'Blendbalance', icon: Scale },
-  { path: '/flavorsheet', label: 'Flavorsheet', icon: Sparkles },
+  { path: '/flavorsheet', label: 'Flavor Operations', icon: Sparkles },
   { path: '/herbline', label: 'Herbline', icon: Flower2 },
-  { path: '/inventory', label: 'Inventory (S)', icon: Warehouse },
   { path: '/order-status', label: 'Order Status', icon: Truck },
 ];
 

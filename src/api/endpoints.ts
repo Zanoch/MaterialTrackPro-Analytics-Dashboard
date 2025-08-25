@@ -1,11 +1,9 @@
 export const API_ENDPOINTS = {
   // Tealine endpoints
   TEALINE: {
-    PENDING: '/central/tealine',
     PENDING_OPTIMIZED: '/central/tealine/pending-with-calculations',
     ALL: '/central/admin/tealine',
     INVENTORY_OPTIMIZED: '/central/admin/tealine/inventory-complete',
-    RECORD: '/central/tealine/record',
   },
   
   // Blendsheet endpoints
@@ -13,10 +11,8 @@ export const API_ENDPOINTS = {
     ALL: '/central/blendsheet',
     ADMIN: '/central/admin/blendsheet',
     PAGINATED: '/central/admin/blendsheet/paginated',
-    SUMMARY: '/central/blendsheet/summary',
+    OPERATIONS_DATA: '/central/admin/blendsheet/operations-data',
     BATCH: '/central/blendsheet/batch',
-    RECORD: '/central/blendsheet/record',
-    ANALYSIS: '/central/blendsheet/analysis',
   },
   
   // Flavorsheet endpoints

@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Search, Download, RefreshCw, Package, ChevronDown, ChevronUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Search, Download, RefreshCw, Package } from 'lucide-react';
+import { Card, CardContent } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { OrderStatusCards, OrderMetricsCards } from '../components/order/OrderStatusCards';
+import { OrderStatusCards } from '../components/order/OrderStatusCards';
 import { OrderPlansTable } from '../components/order/OrderPlansTable';
 import { MaterialRequestsTable } from '../components/order/MaterialRequestsTable';
-import { OrderTimeline } from '../components/order/OrderTimeline';
 import { useOrderDashboard } from '../hooks/useOrderDashboard';
-import type { OrderDashboardFilters, OrderPlanDetails, OrderRequest, ShipmentWithEvents } from '../types/order';
+import type { OrderDashboardFilters } from '../types/order';
 
 export function OrderStatusDashboard() {
   // State management
@@ -16,14 +15,7 @@ export function OrderStatusDashboard() {
     date_from: new Date().toISOString().split('T')[0], // Today
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [_selectedOrder, setSelectedOrder] = useState<{
-    type: 'plan' | 'request';
-    plan?: OrderPlanDetails;
-    request?: OrderRequest;
-    shipment?: ShipmentWithEvents;
-  } | undefined>();
-  const [viewMode, setViewMode] = useState<'plans' | 'material-requests'>('plans');
-  const [isRecentActivitiesOpen, setIsRecentActivitiesOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<'plans' | 'material-requests'>('material-requests');
 
   // Hooks
   const { data: dashboardData, isLoading, error, refetch } = useOrderDashboard(filters);
@@ -37,9 +29,6 @@ export function OrderStatusDashboard() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handlePlanSelect = (plan: OrderPlanDetails) => {
-    setSelectedOrder({ type: 'plan', plan });
-  };
 
 
   const handleExport = () => {
@@ -136,56 +125,7 @@ export function OrderStatusDashboard() {
         isLoading={isLoading} 
       />
 
-      {/* Metrics Cards */}
-      <OrderMetricsCards 
-        summary={dashboardData?.summary || {
-          total_plans: 0,
-          pending_requests: 0,
-          accepted_orders: 0,
-          in_transit: 0,
-          received_today: 0,
-          total_requirement_kg: 0,
-          total_shipped_kg: 0,
-          fulfillment_rate: 0
-        }} 
-        isLoading={isLoading} 
-      />
 
-      {/* Recent Activities - Collapsible Card */}
-      <Card>
-        <CardHeader>
-          <div 
-            className="cursor-pointer select-none hover:bg-gray-50 transition-colors flex items-center justify-between"
-            onClick={() => setIsRecentActivitiesOpen(!isRecentActivitiesOpen)}
-          >
-            <CardTitle className="text-lg font-semibold text-gray-900">
-              Recent Activities
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {!isRecentActivitiesOpen && dashboardData?.recentEvents && dashboardData.recentEvents.length > 0 && (
-                <span className="text-sm text-gray-500">
-                  {dashboardData.recentEvents.length} events
-                </span>
-              )}
-              {isRecentActivitiesOpen ? (
-                <ChevronUp className="h-5 w-5 text-gray-500 transition-transform" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-500 transition-transform" />
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <div className={`transition-all duration-300 ease-in-out ${isRecentActivitiesOpen ? 'max-h-[500px] overflow-y-auto' : 'max-h-0 overflow-hidden'}`}>
-          {isRecentActivitiesOpen && (
-            <CardContent>
-              <OrderTimeline
-                events={dashboardData?.recentEvents || []}
-                isLoading={isLoading}
-              />
-            </CardContent>
-          )}
-        </div>
-      </Card>
 
       {/* Filters */}
       <Card>
@@ -230,24 +170,24 @@ export function OrderStatusDashboard() {
             <div className="flex items-center space-x-2 ml-auto">
               <div className="flex rounded-md border border-gray-200">
                 <button
-                  onClick={() => setViewMode('plans')}
-                  className={`px-3 py-1 text-sm rounded-l-md ${
-                    viewMode === 'plans' 
-                      ? 'bg-tea-600 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Plans
-                </button>
-                <button
                   onClick={() => setViewMode('material-requests')}
-                  className={`px-3 py-1 text-sm rounded-r-md border-l border-gray-200 ${
+                  className={`px-3 py-1 text-sm rounded-l-md ${
                     viewMode === 'material-requests' 
                       ? 'bg-tea-600 text-white' 
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  Material Requests
+                  Order Requests
+                </button>
+                <button
+                  onClick={() => setViewMode('plans')}
+                  className={`px-3 py-1 text-sm rounded-r-md border-l border-gray-200 ${
+                    viewMode === 'plans' 
+                      ? 'bg-tea-600 text-white' 
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Order Schedules
                 </button>
               </div>
 
@@ -267,9 +207,7 @@ export function OrderStatusDashboard() {
       {/* Main Content */}
       {viewMode === 'plans' && (
         <OrderPlansTable
-          orderPlans={dashboardData?.orderPlans || []}
           isLoading={isLoading}
-          onPlanSelect={handlePlanSelect}
           showPagination={true}
         />
       )}

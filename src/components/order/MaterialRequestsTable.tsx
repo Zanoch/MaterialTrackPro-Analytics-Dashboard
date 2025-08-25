@@ -184,7 +184,7 @@ export function MaterialRequestsTable({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Material Requests</CardTitle>
+        <CardTitle>Order Requests</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

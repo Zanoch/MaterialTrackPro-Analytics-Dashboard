@@ -1,8 +1,6 @@
 import { amplifyApiClient } from '../amplifyClient';
 import { API_ENDPOINTS } from '../endpoints';
 import { 
-  type TealineItem, 
-  type TealineInventoryItem, 
   type PendingTealineItem, 
   type TealineFilters,
   type InventoryCompleteResponse
@@ -10,111 +8,86 @@ import {
 
 // Mock data as fallback
 const mockPendingTealines: PendingTealineItem[] = [];
-const mockTealineInventory: TealineInventoryItem[] = [];
 
 export const tealineService = {
   // Get pending tealines with Amplify API
-  getPending: async (filters?: TealineFilters): Promise<PendingTealineItem[]> => {
-    console.log('🚀 [Amplify] Getting pending tealines');
-    
+  getPending: async (filters?: TealineFilters) => {
     try {
       const data = await amplifyApiClient.get(
         API_ENDPOINTS.TEALINE.PENDING_OPTIMIZED,
         filters
       );
       
-      console.log('✅ [Amplify] Response received:', data);
-      
-      // Handle response structure
-      if (data?.success && Array.isArray(data.data)) {
-        return data.data;
-      }
-      
-      if (Array.isArray(data)) {
+      // Return the full response object (with success, data, and meta)
+      if (data?.success) {
         return data;
       }
       
+      // Fallback for old response format (array of items)
+      if (Array.isArray(data)) {
+        return {
+          success: true,
+          data: data,
+          meta: {
+            total_items: data.length,
+            current_page_items: data.length,
+            total_pending_bags: 0,
+            average_age_days: 0,
+            pagination: {
+              limit: 25,
+              offset: 0,
+              total_count: data.length,
+              total_pages: Math.ceil(data.length / 25),
+              current_page: 1,
+              has_next: false,
+              has_previous: false,
+            },
+          },
+        };
+      }
+      
       console.warn('⚠️ Unexpected response structure, using mock data');
-      return mockPendingTealines;
-    } catch (error) {
-      console.error('❌ [Amplify] Error:', error);
-      return mockPendingTealines;
-    }
-  },
-
-  // Get all tealines
-  getAll: async (filters?: TealineFilters): Promise<TealineItem[]> => {
-    try {
-      const data = await amplifyApiClient.get(
-        API_ENDPOINTS.TEALINE.ALL,
-        filters
-      );
-      
-      if (Array.isArray(data)) return data;
-      if (data?.data && Array.isArray(data.data)) return data.data;
-      
-      return [];
-    } catch (error) {
-      console.error('Error fetching tealines:', error);
-      return [];
-    }
-  },
-
-  // Get inventory
-  getInventory: async (filters?: TealineFilters): Promise<TealineInventoryItem[]> => {
-    try {
-      const data = await amplifyApiClient.get(
-        API_ENDPOINTS.TEALINE.ALL,
-        filters
-      );
-      
-      if (Array.isArray(data)) return data;
-      if (data?.data && Array.isArray(data.data)) return data.data;
-      
-      return mockTealineInventory;
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
-      return mockTealineInventory;
-    }
-  },
-
-  // Get optimized inventory
-  getInventoryOptimized: async (filters?: TealineFilters): Promise<InventoryCompleteResponse> => {
-    try {
-      const data = await amplifyApiClient.get(
-        API_ENDPOINTS.TEALINE.INVENTORY_OPTIMIZED,
-        filters
-      );
-      
-      return data;
-    } catch (error) {
-      console.error('Error fetching optimized inventory:', error);
-      // Return default structure
       return {
         success: false,
-        data: [],
+        data: mockPendingTealines,
         meta: {
           total_items: 0,
-          total_inventory_weight: 0,
-          total_available_weight: 0
-        }
+          current_page_items: 0,
+          total_pending_bags: 0,
+          average_age_days: 0,
+          pagination: {
+            limit: 25,
+            offset: 0,
+            total_count: 0,
+            total_pages: 0,
+            current_page: 1,
+            has_next: false,
+            has_previous: false,
+          },
+        },
+      };
+    } catch (error) {
+      console.error('❌ [Amplify] Error:', error);
+      return {
+        success: false,
+        data: mockPendingTealines,
+        meta: {
+          total_items: 0,
+          current_page_items: 0,
+          total_pending_bags: 0,
+          average_age_days: 0,
+          pagination: {
+            limit: 25,
+            offset: 0,
+            total_count: 0,
+            total_pages: 0,
+            current_page: 1,
+            has_next: false,
+            has_previous: false,
+          },
+        },
       };
     }
-  },
-
-  // Create record
-  createRecord: async (data: any): Promise<any> => {
-    return amplifyApiClient.post(API_ENDPOINTS.TEALINE.RECORD, data);
-  },
-
-  // Update record
-  updateRecord: async (id: string, data: any): Promise<any> => {
-    return amplifyApiClient.put(`${API_ENDPOINTS.TEALINE.RECORD}/${id}`, data);
-  },
-
-  // Delete record
-  deleteRecord: async (id: string): Promise<any> => {
-    return amplifyApiClient.delete(`${API_ENDPOINTS.TEALINE.RECORD}/${id}`);
   },
 
   // Get complete inventory data with pre-calculated allocations and location distribution
@@ -122,6 +95,7 @@ export const tealineService = {
     try {
       console.log('🚀 [INVENTORY-COMPLETE] Starting getInventoryComplete function');
       console.log('🔍 [INVENTORY-COMPLETE] Filters:', filters);
+      
       
       const response = await amplifyApiClient.get(API_ENDPOINTS.TEALINE.INVENTORY_OPTIMIZED, filters);
       
@@ -141,8 +115,18 @@ export const tealineService = {
         data: [],
         meta: {
           total_items: 0,
+          current_page_items: 0,
           total_inventory_weight: 0,
-          total_available_weight: 0
+          total_available_weight: 0,
+          pagination: {
+            limit: 25,
+            offset: 0,
+            total_count: 0,
+            total_pages: 0,
+            current_page: 1,
+            has_next: false,
+            has_previous: false
+          }
         }
       };
     } catch (error) {
@@ -152,8 +136,18 @@ export const tealineService = {
         data: [],
         meta: {
           total_items: 0,
+          current_page_items: 0,
           total_inventory_weight: 0,
-          total_available_weight: 0
+          total_available_weight: 0,
+          pagination: {
+            limit: 25,
+            offset: 0,
+            total_count: 0,
+            total_pages: 0,
+            current_page: 1,
+            has_next: false,
+            has_previous: false
+          }
         }
       };
     }
@@ -180,17 +174,4 @@ export const tealineService = {
     }
   },
 
-  // Get records for a specific tealine item
-  getRecords: async (itemCode: string, createdTs: string): Promise<any[]> => {
-    try {
-      const response = await amplifyApiClient.get(`${API_ENDPOINTS.TEALINE.ALL}/records`, {
-        item_code: itemCode,
-        created_ts: createdTs
-      });
-      return response?.data || response || [];
-    } catch (error) {
-      console.error('Error fetching tealine records:', error);
-      return [];
-    }
-  },
 };

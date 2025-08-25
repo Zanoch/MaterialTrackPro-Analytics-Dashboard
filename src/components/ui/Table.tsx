@@ -6,6 +6,10 @@ interface TableProps {
   children: ReactNode;
 }
 
+interface TableRowProps extends TableProps {
+  onClick?: () => void;
+}
+
 interface TableCellProps extends TableProps {
   colSpan?: number;
 }
@@ -36,9 +40,12 @@ export function TableBody({ className, children }: TableProps) {
   );
 }
 
-export function TableRow({ className, children }: TableProps) {
+export function TableRow({ className, children, onClick }: TableRowProps) {
   return (
-    <tr className={cn("border-b transition-colors hover:bg-gray-50", className)}>
+    <tr 
+      className={cn("border-b transition-colors hover:bg-gray-50", onClick && "cursor-pointer", className)}
+      onClick={onClick}
+    >
       {children}
     </tr>
   );

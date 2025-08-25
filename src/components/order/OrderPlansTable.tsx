@@ -1,36 +1,209 @@
 import { useState } from 'react';
-import { Calendar, Package, FileText, MoreVertical } from 'lucide-react';
+import { Calendar, Package, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { Loading } from '../ui/Loading';
 import { Pagination } from '../ui/Pagination';
-import type { OrderPlanDetails } from '../../types/order';
-import { calculateOrderProgress, getOrderStatusColor, getOrderStatusIcon, formatOrderStatus } from '../../hooks/useOrderDashboard';
+import type { OrderSchedule } from '../../types/order';
+
+// Mock data for order schedules
+const mockOrderSchedules: OrderSchedule[] = [
+  {
+    schedule_code: "1",
+    schedule_date: "2025-05-14",
+    order_code: "EBRO/PPO/024295",
+    shift: "DAY",
+    section: "PERFECTA UNIVERSAL TAG 01",
+    quantity: 335,
+    filled_quantity: 335
+  },
+  {
+    schedule_code: "2", 
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026835",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA TAG 01",
+    quantity: 1190,
+    filled_quantity: 850
+  },
+  {
+    schedule_code: "3",
+    schedule_date: "2025-06-27", 
+    order_code: "EBRO/PPO/026839",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA TAG 02", 
+    quantity: 1190,
+    filled_quantity: 0
+  },
+  {
+    schedule_code: "4",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026803", 
+    shift: "NIGHT & DAY",
+    section: "PERFECTA UNIVERSAL TAG 01",
+    quantity: 1296,
+    filled_quantity: 900
+  },
+  {
+    schedule_code: "5",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026111",
+    shift: "NIGHT & DAY", 
+    section: "PERFECTA UNIVERSAL 01/02",
+    quantity: 36821,
+    filled_quantity: 25000
+  },
+  {
+    schedule_code: "6",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026095",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA ENV 02",
+    quantity: 2134,
+    filled_quantity: 2134
+  },
+  {
+    schedule_code: "7",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026926",
+    shift: "NIGHT & DAY",
+    section: "CONSTANTA NEW 01", 
+    quantity: 10,
+    filled_quantity: 7
+  },
+  {
+    schedule_code: "8",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026824",
+    shift: "NIGHT & DAY",
+    section: "IMA",
+    quantity: 2030,
+    filled_quantity: 1500
+  },
+  {
+    schedule_code: "9",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026490",
+    shift: "NIGHT & DAY",
+    section: "MAISA TAG",
+    quantity: 22102,
+    filled_quantity: 0
+  },
+  {
+    schedule_code: "10",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/025629", 
+    shift: "NIGHT & DAY",
+    section: "FUSO",
+    quantity: 109,
+    filled_quantity: 60
+  },
+  {
+    schedule_code: "11",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026654",
+    shift: "NIGHT & DAY",
+    section: "MAISA TAG",
+    quantity: 2968,
+    filled_quantity: 1800
+  },
+  {
+    schedule_code: "12",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026650",
+    shift: "NIGHT & DAY", 
+    section: "MAISA TAG",
+    quantity: 31080,
+    filled_quantity: 20000
+  },
+  {
+    schedule_code: "13",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026651",
+    shift: "NIGHT & DAY",
+    section: "MAISA TAG", 
+    quantity: 31080,
+    filled_quantity: 31080
+  },
+  {
+    schedule_code: "14",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026652",
+    shift: "NIGHT & DAY",
+    section: "MAISA TAG",
+    quantity: 31080,
+    filled_quantity: 15000
+  },
+  {
+    schedule_code: "15",
+    schedule_date: "2025-06-27",
+    order_code: "EBRO/PPO/026653",
+    shift: "NIGHT & DAY",
+    section: "MAISA TAG",
+    quantity: 31080,
+    filled_quantity: 5000
+  },
+  {
+    schedule_code: "16", 
+    schedule_date: "2025-07-31",
+    order_code: "EBRO/PPO/028465",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA UNIVERSAL TAG",
+    quantity: 3250,
+    filled_quantity: 0
+  },
+  {
+    schedule_code: "17",
+    schedule_date: "2025-07-31",
+    order_code: "EBRO/PPO/027101",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA ENV 02",
+    quantity: 11160,
+    filled_quantity: 8000
+  },
+  {
+    schedule_code: "18",
+    schedule_date: "2025-08-01",
+    order_code: "EBRO/PPO/028465",
+    shift: "NIGHT & DAY", 
+    section: "PERFECTA UNIVERSAL TAG",
+    quantity: 3250,
+    filled_quantity: 2500
+  },
+  {
+    schedule_code: "19",
+    schedule_date: "2025-08-01",
+    order_code: "EBRO/PPO/027101",
+    shift: "NIGHT & DAY",
+    section: "PERFECTA ENV 02",
+    quantity: 11160,
+    filled_quantity: 3000
+  }
+];
 
 interface OrderPlansTableProps {
-  orderPlans: OrderPlanDetails[];
+  orderSchedules?: OrderSchedule[];
   isLoading?: boolean;
-  onPlanSelect?: (plan: OrderPlanDetails) => void;
   showPagination?: boolean;
 }
 
-export function OrderPlansTable({ orderPlans, isLoading = false, onPlanSelect, showPagination = false }: OrderPlansTableProps) {
+export function OrderPlansTable({ orderSchedules = mockOrderSchedules, isLoading = false, showPagination = false }: OrderPlansTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Pagination logic
-  const totalItems = orderPlans.length;
+  const totalItems = orderSchedules.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPlans = showPagination 
-    ? orderPlans.slice(startIndex, startIndex + itemsPerPage)
-    : orderPlans;
+  const paginatedSchedules = showPagination 
+    ? orderSchedules.slice(startIndex, startIndex + itemsPerPage)
+    : orderSchedules;
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Order Plans</CardTitle>
+          <CardTitle>Order Schedules</CardTitle>
         </CardHeader>
         <CardContent>
           <Loading className="flex justify-center py-8" />
@@ -39,16 +212,16 @@ export function OrderPlansTable({ orderPlans, isLoading = false, onPlanSelect, s
     );
   }
 
-  if (orderPlans.length === 0) {
+  if (orderSchedules.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Order Plans</CardTitle>
+          <CardTitle>Order Schedules</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-gray-500">
             <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>No order plans found</p>
+            <p>No order schedules found</p>
           </div>
         </CardContent>
       </Card>
@@ -60,118 +233,90 @@ export function OrderPlansTable({ orderPlans, isLoading = false, onPlanSelect, s
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <FileText className="h-5 w-5" />
-          <span>Order Plans ({orderPlans.length})</span>
+          <span>Order Schedules ({orderSchedules.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="px-6 py-3">Schedule Code</TableHead>
+              <TableHead className="px-6 py-3">Schedule Date</TableHead>
               <TableHead className="px-6 py-3">Order Code</TableHead>
-              <TableHead className="px-6 py-3">Product</TableHead>
-              <TableHead className="px-6 py-3">Required</TableHead>
-              <TableHead className="px-6 py-3">Allowed</TableHead>
-              <TableHead className="px-6 py-3">Plan Period</TableHead>
-              <TableHead className="px-6 py-3">Requests</TableHead>
+              <TableHead className="px-6 py-3">Shift</TableHead>
+              <TableHead className="px-6 py-3">Section</TableHead>
+              <TableHead className="px-6 py-3">Quantity (kg)</TableHead>
               <TableHead className="px-6 py-3">Progress</TableHead>
-              <TableHead className="px-6 py-3">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedPlans.map((plan) => {
-              const progress = calculateOrderProgress(plan);
-              const hasRequests = plan.requests.length > 0;
-              const latestRequestStatus = hasRequests ? plan.requests[plan.requests.length - 1].status : null;
+            {paginatedSchedules.map((schedule) => {
+              const progressPercentage = Math.min((schedule.filled_quantity / schedule.quantity) * 100, 100);
+              const isCompleted = progressPercentage >= 100;
+              const isInProgress = progressPercentage > 0 && progressPercentage < 100;
               
               return (
                 <TableRow 
-                  key={plan.order_code}
+                  key={schedule.schedule_code}
                   className="hover:bg-gray-50"
                 >
                   <TableCell className="px-6 py-4 font-medium text-tea-600">
-                    <div 
-                      className="cursor-pointer"
-                      onClick={() => onPlanSelect?.(plan)}
-                    >
-                      {plan.order_code}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell className="px-6 py-4">
-                    <div className="max-w-48">
-                      <div className="font-medium text-gray-900 truncate">
-                        {plan.product_name}
-                      </div>
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell className="px-6 py-4">
-                    <div className="text-sm">
-                      <div className="font-medium">{(plan.requirement / 1000).toFixed(1)}t</div>
-                      <div className="text-gray-500">{plan.requirement.toLocaleString()}kg</div>
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell className="px-6 py-4">
-                    <div className="text-sm">
-                      <div className="font-medium">{(plan.allowed / 1000).toFixed(1)}t</div>
-                      <div className="text-gray-500">{plan.allowed.toLocaleString()}kg</div>
-                    </div>
+                    {schedule.schedule_code}
                   </TableCell>
                   
                   <TableCell className="px-6 py-4">
                     <div className="text-sm">
                       <div className="flex items-center space-x-1 text-gray-600">
                         <Calendar className="h-3 w-3" />
-                        <span>{plan.plan_start.toLocaleDateString()}</span>
+                        <span>{new Date(schedule.schedule_date).toLocaleDateString()}</span>
                       </div>
-                      <div className="text-gray-500">
-                        to {plan.plan_end.toLocaleDateString()}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell className="px-6 py-4 font-medium text-gray-900">
+                    {schedule.order_code}
+                  </TableCell>
+                  
+                  <TableCell className="px-6 py-4">
+                    <Badge 
+                      variant={schedule.shift === 'DAY' ? 'info' : schedule.shift === 'NIGHT' ? 'warning' : 'default'}
+                      className="text-xs"
+                    >
+                      {schedule.shift}
+                    </Badge>
+                  </TableCell>
+                  
+                  <TableCell className="px-6 py-4">
+                    <div className="max-w-64 truncate text-sm text-gray-900">
+                      {schedule.section}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell className="px-6 py-4">
+                    <div className="text-sm">
+                      <div className="font-medium">{schedule.quantity.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">
+                        {schedule.filled_quantity.toLocaleString()} filled
                       </div>
                     </div>
                   </TableCell>
                   
                   <TableCell className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <Badge 
-                        variant={hasRequests ? "default" : "info"}
-                        className="text-xs"
-                      >
-                        {plan.requests.length} request{plan.requests.length !== 1 ? 's' : ''}
-                      </Badge>
-                      {latestRequestStatus && (
-                        <Badge 
-                          variant="default"
-                          className={`text-xs border-${getOrderStatusColor(latestRequestStatus)}-200 text-${getOrderStatusColor(latestRequestStatus)}-700`}
-                        >
-                          {getOrderStatusIcon(latestRequestStatus)} {formatOrderStatus(latestRequestStatus)}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  
-                  <TableCell className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2 min-w-16">
+                    <div className="flex items-center space-x-3 min-w-32">
+                      <div className="flex-1 bg-gray-200 rounded-full h-3 min-w-20">
                         <div 
-                          className={`h-2 rounded-full ${
-                            progress < 30 ? 'bg-red-500' :
-                            progress < 70 ? 'bg-amber-500' :
-                            'bg-green-500'
+                          className={`h-3 rounded-full transition-all duration-300 ${
+                            isCompleted ? 'bg-green-500' :
+                            isInProgress ? 'bg-blue-500' :
+                            'bg-gray-300'
                           }`}
-                          style={{ width: `${Math.min(progress, 100)}%` }}
+                          style={{ width: `${progressPercentage}%` }}
                         />
                       </div>
-                      <span className="text-xs text-gray-600 min-w-8">
-                        {progress.toFixed(0)}%
+                      <span className="text-xs font-medium text-gray-600 min-w-10 text-right">
+                        {progressPercentage.toFixed(0)}%
                       </span>
                     </div>
-                  </TableCell>
-                  
-                  <TableCell className="px-6 py-4">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
                   </TableCell>
                 </TableRow>
               );
@@ -197,80 +342,5 @@ export function OrderPlansTable({ orderPlans, isLoading = false, onPlanSelect, s
         )}
       </CardContent>
     </Card>
-  );
-}
-
-interface OrderPlanCardProps {
-  plan: OrderPlanDetails;
-  onClick?: () => void;
-}
-
-export function OrderPlanCard({ plan, onClick }: OrderPlanCardProps) {
-  const progress = calculateOrderProgress(plan);
-  const hasRequests = plan.requests.length > 0;
-  const latestRequestStatus = hasRequests ? plan.requests[plan.requests.length - 1].status : null;
-
-  return (
-    <div 
-      className="border border-gray-200 rounded-lg p-4 hover:border-tea-400 cursor-pointer transition-colors"
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="font-semibold text-tea-600">{plan.order_code}</h3>
-          <p className="text-sm text-gray-600 mt-1 truncate max-w-48">
-            {plan.product_name}
-          </p>
-        </div>
-        <button className="text-gray-400 hover:text-gray-600">
-          <MoreVertical className="h-4 w-4" />
-        </button>
-      </div>
-      
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Required:</span>
-          <span className="font-medium">{(plan.requirement / 1000).toFixed(1)}t</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Allowed:</span>
-          <span className="font-medium">{(plan.allowed / 1000).toFixed(1)}t</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Requests:</span>
-          <Badge variant={hasRequests ? "default" : "info"} className="text-xs">
-            {plan.requests.length}
-          </Badge>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-600">Progress:</span>
-          <span className="font-medium">{progress.toFixed(0)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className={`h-2 rounded-full ${
-              progress < 30 ? 'bg-red-500' :
-              progress < 70 ? 'bg-amber-500' :
-              'bg-green-500'
-            }`}
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
-        </div>
-        
-        {latestRequestStatus && (
-          <div className="mt-2">
-            <Badge 
-              variant="default"
-              className={`text-xs border-${getOrderStatusColor(latestRequestStatus)}-200 text-${getOrderStatusColor(latestRequestStatus)}-700`}
-            >
-              {getOrderStatusIcon(latestRequestStatus)} {formatOrderStatus(latestRequestStatus)}
-            </Badge>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

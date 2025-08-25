@@ -17,7 +17,7 @@ export interface TealineRecord {
   barcode: string;
 }
 
-// Location distribution for inventory items
+// Location distribution interface (for separate location API endpoint)
 export interface LocationDistribution {
   location: string;
   bags: number;
@@ -45,6 +45,15 @@ export interface TealineInventoryItem extends TealineItem {
   record_list?: TealineRecord[];
 }
 
+// Individual bag details interface - updated for optimized query
+export interface BagDetail {
+  bag_id: string;
+  net_weight: number;
+  remaining_weight: number;
+  received_timestamp: string;
+  location: string;
+}
+
 // New inventory complete type matching the optimized API endpoint
 export interface TealineInventoryComplete {
   item_code: string;
@@ -52,26 +61,33 @@ export interface TealineInventoryComplete {
   broker: string;
   garden: string;
   grade: string;
-  expected_bags: number;
   total_bags_received: number;
-  available_bags: number;
-  allocated_bags: number;
-  processed_bags: number;
-  total_gross_weight: number;
-  total_bag_weight: number;
   total_net_weight: number;
   remaining_weight: number;
-  location_distribution: LocationDistribution[];
   first_received_date: string;
   last_received_date: string;
   last_updated: string;
+  bag_details?: BagDetail[]; // Optional detailed bag information
+}
+
+// Pagination information
+export interface PaginationMeta {
+  limit: number;
+  offset: number;
+  total_count: number;
+  total_pages: number;
+  current_page: number;
+  has_next: boolean;
+  has_previous: boolean;
 }
 
 // Meta information for inventory dashboard
 export interface InventoryMeta {
   total_items: number;
+  current_page_items: number;
   total_inventory_weight: number;
   total_available_weight: number;
+  pagination: PaginationMeta;
 }
 
 // API Response for inventory complete endpoint
@@ -89,6 +105,7 @@ export interface PendingTealineItem extends TealineItem {
   weight_per_bag?: number;
   // Calculated pending fields
   no_of_bags: number;
+  expected_bags?: number;
   received: number;
   pending: number;
   age_days: number;
@@ -101,6 +118,9 @@ export interface TealineFilters {
   status?: string;
   date_from?: string;
   date_to?: string;
+  limit?: number;
+  offset?: number;
+  search?: string;
 }
 
 // API Response wrapper

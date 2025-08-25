@@ -46,7 +46,6 @@ import type {
 import {
   TRANSFER_TYPES,
   BLENDBALANCE_STATUS_LABELS,
-  COMPLETION_STATUS_LABELS,
 } from "../types/blendbalance";
 
 export function BlendbalanceOperations() {
@@ -54,7 +53,6 @@ export function BlendbalanceOperations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchContext, setSearchContext] = useState<SearchContext>("admin");
   const [filters, setFilters] = useState<BlendbalanceSearchFilters>({});
-  const [selectedTransfer, setSelectedTransfer] = useState<BlendbalanceItem | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "transfers">("table");
 
   // Hooks
@@ -129,24 +127,12 @@ export function BlendbalanceOperations() {
     setSearchContext(context);
   };
 
-  const handleTransferSelect = (transfer: BlendbalanceItem) => {
-    setSelectedTransfer(transfer);
-  };
 
   const handleCreateTransfer = async () => {
     // TODO: Open create transfer modal
     console.log("Create new transfer");
   };
 
-  const handleStartTransfer = async (transfer: BlendbalanceItem) => {
-    // TODO: Implement start transfer functionality
-    console.log("Start transfer:", transfer.transfer_id);
-  };
-
-  const handleCompleteTransfer = async (transfer: BlendbalanceItem) => {
-    // TODO: Implement complete transfer functionality
-    console.log("Complete transfer:", transfer.transfer_id);
-  };
 
   const handleExport = () => {
     // TODO: Implement export functionality
@@ -399,86 +385,45 @@ export function BlendbalanceOperations() {
       </Card>
 
       {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Transfer Operations (Left Panel - 2/3) */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {viewMode === "table" ? "Transfer Operations" : "Transfer Tracking"} (
-                  {blendbalances.length} transfers)
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={viewMode === "table" ? "default" : "info"}>
-                    {viewMode === "table" ? "Table" : "Tracking"}
-                  </Badge>
-                </div>
+      <div className="w-full">
+        {/* Transfer Operations - Full Width */}
+        <Card className="w-full">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {viewMode === "table" ? "Transfer Operations" : "Transfer Tracking"} (
+                {blendbalances.length} transfers)
+              </h2>
+              <div className="flex items-center space-x-2">
+                <Badge variant={viewMode === "table" ? "default" : "info"}>
+                  {viewMode === "table" ? "Table" : "Tracking"}
+                </Badge>
               </div>
             </div>
+          </div>
 
-            <div className="p-6">
-              {isCurrentlyLoading ? (
-                <Loading className="flex justify-center py-8" />
-              ) : blendbalances.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  {searchTerm.length >= 2
-                    ? "No transfers found for your search."
-                    : "No transfers available."}
-                </div>
-              ) : viewMode === "table" ? (
-                /* Table View */
-                <BlendbalanceTable
-                  blendbalances={blendbalances}
-                  onTransferSelect={handleTransferSelect}
-                  onStartTransfer={handleStartTransfer}
-                  onCompleteTransfer={handleCompleteTransfer}
-                />
-              ) : (
-                /* Transfer Tracking View */
-                <TransferTrackingView
-                  blendbalances={blendbalances}
-                  onTransferSelect={handleTransferSelect}
-                />
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Transfer Details Panel (Right Panel - 1/3) */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {selectedTransfer ? "Transfer Details" : "Select Transfer"}
-                </h2>
-                {selectedTransfer && (
-                  <button
-                    onClick={() => setSelectedTransfer(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ×
-                  </button>
-                )}
+          <div className="p-6">
+            {isCurrentlyLoading ? (
+              <Loading className="flex justify-center py-8" />
+            ) : blendbalances.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {searchTerm.length >= 2
+                  ? "No transfers found for your search."
+                  : "No transfers available."}
               </div>
-            </div>
-
-            <div className="p-6">
-              {selectedTransfer ? (
-                <TransferDetailsPanel transfer={selectedTransfer} />
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Scale className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>
-                    Select a transfer to view detailed information, weight distribution, and quality
-                    status.
-                  </p>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
+            ) : viewMode === "table" ? (
+              /* Table View */
+              <BlendbalanceTable
+                blendbalances={blendbalances}
+              />
+            ) : (
+              /* Transfer Tracking View */
+              <TransferTrackingView
+                blendbalances={blendbalances}
+              />
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );
@@ -487,16 +432,10 @@ export function BlendbalanceOperations() {
 // Blendbalance Table Component
 interface BlendbalanceTableProps {
   blendbalances: BlendbalanceItem[];
-  onTransferSelect: (transfer: BlendbalanceItem) => void;
-  onStartTransfer: (transfer: BlendbalanceItem) => void;
-  onCompleteTransfer: (transfer: BlendbalanceItem) => void;
 }
 
 function BlendbalanceTable({
   blendbalances,
-  onTransferSelect,
-  onStartTransfer,
-  onCompleteTransfer,
 }: BlendbalanceTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -506,11 +445,6 @@ function BlendbalanceTable({
             <TableHead>Transfer ID</TableHead>
             <TableHead>Blend Code</TableHead>
             <TableHead>Weight</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Progress</TableHead>
-            <TableHead>Efficiency</TableHead>
-            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -518,9 +452,6 @@ function BlendbalanceTable({
             <BlendbalanceTableRow
               key={transfer.id}
               transfer={transfer}
-              onClick={() => onTransferSelect(transfer)}
-              onStartTransfer={() => onStartTransfer(transfer)}
-              onCompleteTransfer={() => onCompleteTransfer(transfer)}
             />
           ))}
         </TableBody>
@@ -532,23 +463,14 @@ function BlendbalanceTable({
 // Blendbalance Table Row Component
 function BlendbalanceTableRow({
   transfer,
-  onClick,
-  onStartTransfer,
-  onCompleteTransfer,
 }: {
   transfer: BlendbalanceItem;
-  onClick: () => void;
-  onStartTransfer: () => void;
-  onCompleteTransfer: () => void;
 }) {
-  const statusInfo = BLENDBALANCE_STATUS_LABELS[transfer.status || "PENDING"];
-  const transferTypeInfo = TRANSFER_TYPES[transfer.transfer_type || "BLEND_TO_BLEND"];
-  const completionInfo = COMPLETION_STATUS_LABELS[transfer.completion_status || "NOT_STARTED"];
 
   return (
     <TableRow className="hover:bg-gray-50">
       <TableCell className="font-medium text-tea-600">
-        <div className="cursor-pointer" onClick={onClick}>
+        <div>
           {transfer.transfer_id}
         </div>
       </TableCell>
@@ -564,66 +486,6 @@ function BlendbalanceTableRow({
           </div>
         )}
       </TableCell>
-      <TableCell>
-        <Badge
-          variant="default"
-          className={`bg-${statusInfo.color}-100 text-${statusInfo.color}-800`}
-        >
-          {statusInfo.icon} {statusInfo.label}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center space-x-1">
-          <span>{transferTypeInfo.icon}</span>
-          <span className="text-xs">{transferTypeInfo.label}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center space-x-2">
-          <div className="flex-1 bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-tea-500 h-2 rounded-full"
-              style={{ width: `${transfer.completion_percentage || 0}%` }}
-            />
-          </div>
-          <span className="text-xs text-gray-600">
-            {(transfer.completion_percentage || 0).toFixed(0)}%
-          </span>
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {completionInfo.icon} {completionInfo.label}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="text-sm font-medium">{(transfer.transfer_efficiency || 0).toFixed(1)}%</div>
-        <div className="text-xs text-gray-500">{transfer.age_days || 0}d old</div>
-      </TableCell>
-      <TableCell>
-        <div className="flex space-x-1">
-          {transfer.status === "PENDING" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartTransfer();
-              }}
-              className="bg-tea-500 text-white px-2 py-1 rounded text-xs hover:bg-tea-600 transition-colors"
-            >
-              Start
-            </button>
-          )}
-          {transfer.status === "IN_PROGRESS" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompleteTransfer();
-              }}
-              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
-            >
-              Complete
-            </button>
-          )}
-        </div>
-      </TableCell>
     </TableRow>
   );
 }
@@ -631,10 +493,8 @@ function BlendbalanceTableRow({
 // Transfer Tracking View Component
 function TransferTrackingView({
   blendbalances,
-  onTransferSelect,
 }: {
   blendbalances: BlendbalanceItem[];
-  onTransferSelect: (transfer: BlendbalanceItem) => void;
 }) {
   const groupedTransfers = useMemo(() => {
     const groups = {} as Record<string, BlendbalanceItem[]>;
@@ -668,7 +528,6 @@ function TransferTrackingView({
                 <TransferTrackingCard
                   key={transfer.id}
                   transfer={transfer}
-                  onClick={() => onTransferSelect(transfer)}
                 />
               ))}
             </div>
@@ -682,17 +541,14 @@ function TransferTrackingView({
 // Transfer Tracking Card Component
 function TransferTrackingCard({
   transfer,
-  onClick,
 }: {
   transfer: BlendbalanceItem;
-  onClick: () => void;
 }) {
   const transferTypeInfo = TRANSFER_TYPES[transfer.transfer_type || "BLEND_TO_BLEND"];
 
   return (
     <div
-      className="border border-gray-200 rounded-md p-3 hover:border-tea-400 cursor-pointer transition-colors"
-      onClick={onClick}
+      className="border border-gray-200 rounded-md p-3 hover:border-tea-400 transition-colors"
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
@@ -733,186 +589,3 @@ function TransferTrackingCard({
   );
 }
 
-// Transfer Details Panel Component
-function TransferDetailsPanel({ transfer }: { transfer: BlendbalanceItem }) {
-  const statusInfo = BLENDBALANCE_STATUS_LABELS[transfer.status || "PENDING"];
-  const transferTypeInfo = TRANSFER_TYPES[transfer.transfer_type || "BLEND_TO_BLEND"];
-  const completionInfo = COMPLETION_STATUS_LABELS[transfer.completion_status || "NOT_STARTED"];
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center space-x-2 mb-2">
-          <span className="text-xl">{transferTypeInfo.icon}</span>
-          <h3 className="text-lg font-semibold text-gray-900">{transfer.transfer_id}</h3>
-        </div>
-        <p className="text-sm text-gray-600">Blend Code: {transfer.blend_code}</p>
-        <p className="text-sm text-gray-600">Item Code: {transfer.item_code}</p>
-      </div>
-
-      {/* Weight Distribution */}
-      <div>
-        <h4 className="font-medium text-gray-900 mb-3">⚖️ Weight Distribution</h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total Weight:</span>
-            <span className="font-medium">{transfer.weight.toFixed(1)} kg</span>
-          </div>
-          {transfer.transferred_weight && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Transferred:</span>
-              <span className="font-medium text-green-600">
-                {transfer.transferred_weight.toFixed(1)} kg
-              </span>
-            </div>
-          )}
-          {transfer.remaining_weight && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Remaining:</span>
-              <span className="font-medium text-orange-600">
-                {transfer.remaining_weight.toFixed(1)} kg
-              </span>
-            </div>
-          )}
-          {transfer.weight_distribution && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Loss:</span>
-              <span className="font-medium text-red-600">
-                {transfer.weight_distribution.loss_percentage.toFixed(1)}%
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Transfer Information */}
-      <div>
-        <h4 className="font-medium text-gray-900 mb-3">🔄 Transfer Information</h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Type:</span>
-            <Badge
-              variant="default"
-              className={`border-${transferTypeInfo.color}-200 text-${transferTypeInfo.color}-700`}
-            >
-              {transferTypeInfo.icon} {transferTypeInfo.label}
-            </Badge>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Status:</span>
-            <Badge
-              variant="default"
-              className={`bg-${statusInfo.color}-100 text-${statusInfo.color}-800`}
-            >
-              {statusInfo.icon} {statusInfo.label}
-            </Badge>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Completion:</span>
-            <Badge
-              variant="default"
-              className={`border-${completionInfo.color}-200 text-${completionInfo.color}-700`}
-            >
-              {completionInfo.icon} {completionInfo.label}
-            </Badge>
-          </div>
-          {transfer.source_blend && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Source:</span>
-              <span className="font-medium">{transfer.source_blend}</span>
-            </div>
-          )}
-          {transfer.target_blend && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Target:</span>
-              <span className="font-medium">{transfer.target_blend}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Performance Metrics */}
-      <div>
-        <h4 className="font-medium text-gray-900 mb-3">📊 Performance Metrics</h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Progress:</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-16 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-tea-500 h-2 rounded-full"
-                  style={{ width: `${transfer.completion_percentage || 0}%` }}
-                />
-              </div>
-              <span className="font-medium">
-                {(transfer.completion_percentage || 0).toFixed(0)}%
-              </span>
-            </div>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Efficiency:</span>
-            <span className="font-medium">{(transfer.transfer_efficiency || 0).toFixed(1)}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Age:</span>
-            <span className="font-medium">{transfer.age_days || 0} days</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Created:</span>
-            <span className="font-medium">
-              {new Date(transfer.created_at).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quality Information */}
-      {transfer.quality_check && (
-        <div>
-          <h4 className="font-medium text-gray-900 mb-3">🎯 Quality Check</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Status:</span>
-              <Badge
-                variant={
-                  transfer.quality_check.approval_status === "APPROVED" ? "default" : "warning"
-                }
-                className={
-                  transfer.quality_check.approval_status === "APPROVED"
-                    ? "bg-green-100 text-green-800"
-                    : transfer.quality_check.approval_status === "REJECTED"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-yellow-100 text-yellow-800"
-                }
-              >
-                {transfer.quality_check.approval_status}
-              </Badge>
-            </div>
-            {transfer.quality_check.performed_by && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Checked by:</span>
-                <span className="font-medium">{transfer.quality_check.performed_by}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="pt-4 border-t">
-        <div className="flex space-x-2">
-          <button className="flex-1 bg-tea-500 text-white px-3 py-2 rounded text-sm hover:bg-tea-600 transition-colors">
-            Update Status
-          </button>
-          <button className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm hover:bg-gray-200 transition-colors">
-            Edit Transfer
-          </button>
-        </div>
-        <button className="w-full mt-2 bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 transition-colors">
-          View History
-        </button>
-      </div>
-    </div>
-  );
-}

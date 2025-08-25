@@ -10,14 +10,25 @@ export interface BlendsheetItem {
   actual_weight?: number;
 }
 
+// Blendsheet batch interface
+export interface BlendsheetBatchData {
+  item_code: string;
+  created_ts: Date;
+  blend_in_weight: number;
+  blend_in_time: string;
+  blend_out_weight: number;
+  blend_out_time: string;
+  completed: boolean;
+}
+
 // Extended blendsheet with calculated fields
-export interface BlendsheetData extends BlendsheetItem {
-  target_weight: number;
-  actual_weight: number;
-  progress: number;
-  efficiency: number;
-  created_date: Date;
-  completed_date?: Date;
+export interface BlendsheetData {
+  blendsheet_no: string;
+  blend_code: string;
+  remarks: string;
+  planned_weight: number;
+  no_of_batches: number;
+  batches: BlendsheetBatchData[];
 }
 
 // Weight flow data for charts

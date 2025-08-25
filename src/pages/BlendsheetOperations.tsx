@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import React from "react";
 import {
   RefreshCw,
   Search,
@@ -8,13 +9,13 @@ import {
   Loader2,
   FileDown,
   FileText,
-  Scale,
+  ChevronDown,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { KpiCard } from "../components/ui/KpiCard";
 import { Input } from "../components/ui/Input";
-import { Select } from "../components/ui/Select";
-import { Badge } from "../components/ui/Badge";
 import {
   Table,
   TableBody,
@@ -24,111 +25,207 @@ import {
   TableRow,
 } from "../components/ui/Table";
 import { Pagination } from "../components/ui/Pagination";
-import { useBlendsheetsPaginated } from "../hooks/useBlendsheet";
-import { useQuery } from "@tanstack/react-query";
-import { blendsheetService } from "../api/services/blendsheet.service";
+import { useBlendsheetOperationsData } from "../hooks/useBlendsheet";
 import {
   exportToCSV,
   exportToPDF,
-  formatDateForExport,
   formatWeightForExport,
   formatPercentageForExport,
   type ExportColumn,
 } from "../utils/exportUtils";
-import type { BlendsheetData } from "../types/blendsheet";
-
-type TabType = "blendsheets" | "summary" | "blendbalance" | "analytics";
+import type { BlendsheetData, BlendsheetBatchData } from "../types/blendsheet";
 
 export function BlendsheetOperations() {
-  const [activeTab, setActiveTab] = useState<TabType>("summary");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // For server-side search
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Fetch real API data with server-side pagination
+  // Get browser's timezone offset in ±HH:MM format
+  const getBrowserTimezoneOffset = (): string => {
+    const offsetMinutes = new Date().getTimezoneOffset();
+    const offsetHours = Math.abs(Math.floor(offsetMinutes / 60));
+    const offsetMins = Math.abs(offsetMinutes % 60);
+    const sign = offsetMinutes <= 0 ? "+" : "-";
+
+    return `${sign}${offsetHours.toString().padStart(2, "0")}:${offsetMins
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const timezoneOffset = getBrowserTimezoneOffset();
+
+  // Debug: Log timezone offset
+  useEffect(() => {
+    console.log("Browser timezone offset:", timezoneOffset);
+  }, [timezoneOffset]);
+
+  // Mock data with new structure
+  const mockBlendsheetData: BlendsheetData[] = [
+    {
+      blendsheet_no: "BS001",
+      blend_code: "GRADE-A",
+      remarks: "High priority blend for premium export",
+      planned_weight: 2500,
+      no_of_batches: 3,
+      batches: [
+        {
+          item_code: "BS001-B01",
+          created_ts: new Date("2024-01-15T08:00:00"),
+          blend_in_weight: 850,
+          blend_in_time: "08:00 - 10:30",
+          blend_out_weight: 845,
+          blend_out_time: "10:30 - 12:00",
+          completed: true,
+        },
+        {
+          item_code: "BS001-B02",
+          created_ts: new Date("2024-01-15T13:00:00"),
+          blend_in_weight: 820,
+          blend_in_time: "13:00 - 15:15",
+          blend_out_weight: 815,
+          blend_out_time: "15:15 - 16:45",
+          completed: true,
+        },
+        {
+          item_code: "BS001-B03",
+          created_ts: new Date("2024-01-16T09:00:00"),
+          blend_in_weight: 830,
+          blend_in_time: "09:00 - ongoing",
+          blend_out_weight: 0,
+          blend_out_time: "",
+          completed: false,
+        },
+      ],
+    },
+    {
+      blendsheet_no: "BS002",
+      blend_code: "GRADE-B",
+      remarks: "Regular production batch for domestic market",
+      planned_weight: 1800,
+      no_of_batches: 2,
+      batches: [
+        {
+          item_code: "BS002-B01",
+          created_ts: new Date("2024-01-14T14:00:00"),
+          blend_in_weight: 900,
+          blend_in_time: "14:00 - 16:30",
+          blend_out_weight: 895,
+          blend_out_time: "16:30 - 18:00",
+          completed: true,
+        },
+        {
+          item_code: "BS002-B02",
+          created_ts: new Date("2024-01-15T10:00:00"),
+          blend_in_weight: 900,
+          blend_in_time: "10:00 - 12:45",
+          blend_out_weight: 890,
+          blend_out_time: "12:45 - 14:15",
+          completed: true,
+        },
+      ],
+    },
+    {
+      blendsheet_no: "BS003",
+      blend_code: "GRADE-C",
+      remarks: "Standard quality blend",
+      planned_weight: 3200,
+      no_of_batches: 4,
+      batches: [],
+    },
+  ];
+
+  // Fetch blendsheet operations data with pagination and KPI metrics
   const {
-    data: paginatedResponse,
+    data: operationsResponse,
+    isLoading,
+    isFetching,
     error,
     refetch,
-  } = useBlendsheetsPaginated({
+  } = useBlendsheetOperationsData({
     page: currentPage,
     limit: itemsPerPage,
+    timezone_offset: timezoneOffset,
     filters: {
-      ...(statusFilter && { status: statusFilter }),
-      ...(searchTerm && { search: searchTerm }),
+      ...(searchQuery && { search: searchQuery }),
     },
   });
 
-  // Fetch blendsheet summary data as primary query
-  const {
-    data: blendsheetSummary,
-    isLoading: isLoadingSummary,
-    error: summaryError,
-  } = useQuery({
-    queryKey: ["blendsheet-summary"],
-    queryFn: blendsheetService.getBlendsheetSummary,
-    staleTime: 30000,
-    refetchInterval: 30000,
-  });
+  // Watch for fetch completion and clear user interaction state
+  useEffect(() => {
+    if (isUserInteracting && !isFetching) {
+      setIsUserInteracting(false);
+    }
+  }, [isFetching, isUserInteracting]);
 
-  // Mock blendbalance data for the Blend Balance tab
-  const mockBlendbalanceData = [
-    { transfer_id: "TRF-001", blend_code: "BL-2024-001", weight: 250.5 },
-    { transfer_id: "TRF-002", blend_code: "BL-2024-002", weight: 180.0 },
-    { transfer_id: "TRF-003", blend_code: "BL-2024-003", weight: 320.75 },
-    { transfer_id: "TRF-004", blend_code: "BL-2024-004", weight: 275.25 },
-    { transfer_id: "TRF-005", blend_code: "BL-2024-005", weight: 195.8 },
-  ];
+  // Determine loading states based on existing data
+  const hasExistingData = !!operationsResponse;
+  const isInitialLoading = isLoading && !hasExistingData;
+  const isInteractionLoading = isUserInteracting && isFetching && hasExistingData;
 
-  const apiData = paginatedResponse?.data || [];
-  const pagination = paginatedResponse?.pagination || {
-    page: currentPage,
-    limit: itemsPerPage,
-    total: 0,
-    totalPages: 0,
+  // Use API data, fallback to mock data for development
+  const blendsheetData = operationsResponse?.data || mockBlendsheetData;
+  const metaData = operationsResponse?.meta || {
+    total_items: 0,
+    current_page_items: 0,
+    total_blendsheets: 0,
+    total_batches_created: 0,
+    active_blendsheets: 0,
+    avg_efficiency_percentage: 0,
+    pagination: {
+      limit: 25,
+      offset: 0,
+      total_count: 0,
+      total_pages: 0,
+      current_page: 1,
+      has_next: false,
+      has_previous: false,
+    },
   };
 
-  const statusOptions = [
-    { value: "DRAFT", label: "Draft" },
-    { value: "IN_PROGRESS", label: "In Progress" },
-    { value: "COMPLETED", label: "Completed" },
-    { value: "SHIPPED", label: "Shipped" },
-  ];
+  // Server-side pagination from API response
+  const displayData = blendsheetData;
+  const totalItems = metaData.pagination?.total_count || 0;
+  const totalPages = metaData.pagination?.total_pages || 1;
 
-  // Server-side pagination - no need for client-side filtering
-  const displayData = apiData;
-  const totalItems = pagination.total;
-  const totalPages = pagination.totalPages;
+  // Handle server-side search
+  const handleSearch = () => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setSearchQuery(searchTerm.trim());
+    setCurrentPage(1); // Reset to first page on new search
+  };
 
-  // Reset to first page when filters change
-  const handleFilterChange = (setter: (value: string) => void) => (value: string) => {
-    setter(value);
+  // Handle clear search
+  const handleClearSearch = () => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setSearchTerm("");
+    setSearchQuery("");
     setCurrentPage(1);
   };
 
+  // Handle pagination changes
   const handlePageChange = (page: number) => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
     setCurrentPage(page);
   };
 
+  // Handle page size changes
   const handlePageSizeChange = (pageSize: number) => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
     setItemsPerPage(pageSize);
     setCurrentPage(1);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "DRAFT":
-        return <Badge variant="default">Draft</Badge>;
-      case "IN_PROGRESS":
-        return <Badge variant="warning">In Progress</Badge>;
-      case "COMPLETED":
-        return <Badge variant="success">Completed</Badge>;
-      case "SHIPPED":
-        return <Badge variant="info">Shipped</Badge>;
-      default:
-        return <Badge variant="default">{status}</Badge>;
+  const toggleRowExpansion = (rowId: string) => {
+    const newExpandedRows = new Set(expandedRows);
+    if (newExpandedRows.has(rowId)) {
+      newExpandedRows.delete(rowId);
+    } else {
+      newExpandedRows.add(rowId);
     }
+    setExpandedRows(newExpandedRows);
   };
 
   const formatWeight = (weight: number | undefined | null) => {
@@ -147,35 +244,110 @@ export function BlendsheetOperations() {
     return `${value.toFixed(1)}%`;
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  // Calculate blend-in weight (sum of blend_in_weight from all batches)
+  const calculateBlendInWeight = (item: BlendsheetData) => {
+    return item.batches.reduce((sum, batch) => sum + batch.blend_in_weight, 0);
+  };
+
+  // Calculate blend-out weight (sum of blend_out_weight from all batches)
+  const calculateBlendOutWeight = (item: BlendsheetData) => {
+    return item.batches.reduce((sum, batch) => sum + batch.blend_out_weight, 0);
+  };
+
+  // Get blend-in time range from the latest batch (by created_ts)
+  const getLatestBlendInTime = (item: BlendsheetData) => {
+    if (item.batches.length === 0) return "-";
+
+    // Find the latest batch by created_ts
+    const latestBatch = item.batches.reduce((latest, current) =>
+      current.created_ts > latest.created_ts ? current : latest
+    );
+
+    return latestBatch.blend_in_time || "-";
+  };
+
+  // Get blend-out time range from the latest batch (by created_ts)
+  const getLatestBlendOutTime = (item: BlendsheetData) => {
+    if (item.batches.length === 0) return "-";
+
+    // Find the latest batch by created_ts
+    const latestBatch = item.batches.reduce((latest, current) =>
+      current.created_ts > latest.created_ts ? current : latest
+    );
+
+    return latestBatch.blend_out_time || "-";
+  };
+
+  // Calculate blendsheet status based on batch data
+  const getBlendsheetStatus = (item: BlendsheetData): "DRAFT" | "IN_PROGRESS" | "COMPLETED" => {
+    // Draft if no batches created
+    if (item.batches.length === 0) {
+      return "DRAFT";
+    }
+
+    // Completed if all batches are created AND all are marked as completed
+    if (
+      item.batches.length === item.no_of_batches &&
+      item.batches.every((batch) => batch.completed)
+    ) {
+      return "COMPLETED";
+    }
+
+    // Otherwise, in progress
+    return "IN_PROGRESS";
+  };
+
+  // Calculate efficiency for a single batch (only if completed)
+  const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
+    if (!batch.completed || batch.blend_in_weight === 0) {
+      return null;
+    }
+    return (batch.blend_out_weight / batch.blend_in_weight) * 100;
+  };
+
+  // Calculate overall blendsheet efficiency (average of completed batch efficiencies)
+  const calculateBlendsheetEfficiency = (item: BlendsheetData): number | null => {
+    const completedBatches = item.batches.filter((batch) => batch.completed);
+
+    if (completedBatches.length === 0) {
+      return null;
+    }
+
+    const efficiencies = completedBatches
+      .map((batch) => calculateBatchEfficiency(batch))
+      .filter((efficiency): efficiency is number => efficiency !== null);
+
+    if (efficiencies.length === 0) {
+      return null;
+    }
+
+    return efficiencies.reduce((sum, eff) => sum + eff, 0) / efficiencies.length;
   };
 
   // Export functions
   const handleExportBlendsheets = (format: "csv" | "pdf") => {
     const columns: ExportColumn[] = [
       { key: "blendsheet_no", header: "Blendsheet Number" },
-      { key: "grade", header: "Grade" },
-      { key: "status", header: "Status" },
+      { key: "blend_code", header: "Blend Code" },
+      { key: "remarks", header: "Remarks" },
       { key: "budget_weight", header: "Budget Weight (kg)" },
       { key: "actual_weight", header: "Actual Weight (kg)" },
       { key: "efficiency", header: "Efficiency (%)" },
       { key: "variance", header: "Variance (kg)" },
-      { key: "created_ts", header: "Created Date" },
     ];
 
-    const exportData = displayData.map((item: BlendsheetData) => ({
-      ...item,
-      budget_weight: formatWeightForExport(item.actual_weight || 0),
-      actual_weight: formatWeightForExport(item.actual_weight || 0),
-      efficiency: formatPercentageForExport(item.efficiency || 0),
-      variance: formatWeightForExport(0), // Placeholder since budget_weight is not available
-      created_ts: item.created_ts ? formatDateForExport(item.created_ts) : "N/A",
-    }));
+    const exportData = displayData.map((item: BlendsheetData) => {
+      const blendOutWeight = calculateBlendOutWeight(item);
+      const efficiency = calculateBlendsheetEfficiency(item);
+
+      return {
+        ...item,
+        budget_weight: formatWeightForExport(item.planned_weight),
+        actual_weight: formatWeightForExport(blendOutWeight),
+        efficiency: formatPercentageForExport(efficiency || 0),
+        variance: formatWeightForExport(blendOutWeight - item.planned_weight),
+      };
+    });
 
     const filename = `blendsheet_operations_${new Date().toISOString().split("T")[0]}`;
 
@@ -192,30 +364,13 @@ export function BlendsheetOperations() {
     }
   };
 
-  // Calculate summary stats matching blendsheet-flow page
-  const getEffectiveBlendInWeight = (item: any) => {
-    const blendIn = parseFloat(item.blend_in_weight) || 0;
-    const planned = parseFloat(item.blendsheet_weight) || 0;
-    return blendIn > 0 ? blendIn : planned;
-  };
+  // Use KPI data from API response
+  const totalBlendsheets = metaData.total_blendsheets || 0;
+  const totalPlanned = metaData.total_planned_weight || 0;
+  const totalEffectiveBlendIn = metaData.total_blend_in_weight || 0;
+  const totalBlendOut = metaData.total_blend_out_weight || 0;
 
-  // Use blendsheet summary data for KPIs if available, otherwise use regular data
-  const summaryDataForKPIs = blendsheetSummary || [];
-  const totalBlendsheets = summaryDataForKPIs.length || totalItems || 0;
-  const totalPlanned = summaryDataForKPIs.reduce(
-    (sum: number, item: any) => sum + (parseFloat(item.blendsheet_weight) || 0),
-    0
-  );
-  const totalEffectiveBlendIn = summaryDataForKPIs.reduce(
-    (sum: number, item: any) => sum + getEffectiveBlendInWeight(item),
-    0
-  );
-  const totalBlendOut = summaryDataForKPIs.reduce(
-    (sum: number, item: any) => sum + (parseFloat(item.blend_out_weight) || 0),
-    0
-  );
-
-  if (isLoadingSummary) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-tea-600" />
@@ -278,7 +433,7 @@ export function BlendsheetOperations() {
         </div>
       </div>
 
-      {/* Summary Cards - Updated to match blendsheet-flow page */}
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <KpiCard
           title="Total Blendsheets"
@@ -301,7 +456,7 @@ export function BlendsheetOperations() {
         />
 
         <KpiCard
-          title="Total Effective Blend In"
+          title="Total Blend In"
           value={`${totalEffectiveBlendIn.toLocaleString()} kg`}
           icon={BarChart3}
           iconColor="#237c4b"
@@ -321,309 +476,264 @@ export function BlendsheetOperations() {
         />
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-64">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search by blendsheet code..."
-                  value={searchTerm}
-                  onChange={(e) => handleFilterChange(setSearchTerm)(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search blendsheet number, blend code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
+                className="pl-10"
+              />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={handleFilterChange(setStatusFilter)}
-              placeholder="All Status"
-              options={statusOptions}
-              className="w-40"
-            />
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-md bg-tea-600 px-4 py-2 text-sm font-medium text-white hover:bg-tea-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isInteractionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Tab Navigation */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex border-b">
-            <button
-              onClick={() => setActiveTab("summary")}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "summary"
-                  ? "border-tea-600 text-tea-600 bg-tea-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              Summary ({summaryDataForKPIs.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("blendsheets")}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "blendsheets"
-                  ? "border-tea-600 text-tea-600 bg-tea-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Package2 className="h-4 w-4" />
-              Blendsheets ({totalItems})
-            </button>
-            <button
-              onClick={() => setActiveTab("blendbalance")}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "blendbalance"
-                  ? "border-tea-600 text-tea-600 bg-tea-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Scale className="h-4 w-4" />
-              Blend Balance
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tab Content */}
-      {activeTab === "blendsheets" && (
+      {/* Blendsheets Table */}
+      {isInteractionLoading ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-tea-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-900">Updating results...</p>
+              <p className="text-xs text-gray-500">Filtering blendsheet data</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>
-              Blendsheets ({totalItems} total, showing {(currentPage - 1) * itemsPerPage + 1} - {currentPage * itemsPerPage})
+              Blendsheets ({totalItems} total, showing {(currentPage - 1) * itemsPerPage + 1} -{" "}
+              {currentPage * itemsPerPage})
             </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="px-6 py-3">Blendsheet Code</TableHead>
-                      <TableHead className="px-6 py-3">Status</TableHead>
-                      <TableHead className="px-6 py-3">Target Weight</TableHead>
-                      <TableHead className="px-6 py-3">Progress</TableHead>
-                      <TableHead className="px-6 py-3">Efficiency</TableHead>
-                      <TableHead className="px-6 py-3">Batches</TableHead>
-                      <TableHead className="px-6 py-3">Created</TableHead>
-                      <TableHead className="px-6 py-3">Completed</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.isArray(displayData) &&
-                      displayData.map((item: BlendsheetData) => {
-                        if (!item || !item.blendsheet_no) return null;
-
-                        return (
-                          <TableRow key={item.blendsheet_no}>
-                            <TableCell className="px-6 py-4 font-medium">
-                              {item.blendsheet_no}
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                              {getStatusBadge(item.status || "DRAFT")}
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                              {formatWeight(item.target_weight)}
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-tea-600 h-2 rounded-full"
-                                    style={{
-                                      width: `${Math.min(100, Math.max(0, item.progress || 0))}%`,
-                                    }}
-                                  ></div>
-                                </div>
-                                <span className="text-sm text-gray-600">
-                                  {formatPercentage(item.progress)}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                              <span
-                                className={
-                                  (item.efficiency || 0) > 95
-                                    ? "text-green-600 font-medium"
-                                    : (item.efficiency || 0) > 90
-                                    ? "text-amber-600"
-                                    : "text-red-600"
-                                }
-                              >
-                                {formatPercentage(item.efficiency)}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-6 py-4">
-                              {item.created_batches || 0}/{item.no_of_batches || 0}
-                            </TableCell>
-                            <TableCell className="px-6 py-4 text-sm text-gray-600">
-                              {item.created_date ? formatDate(item.created_date.getTime()) : "-"}
-                            </TableCell>
-                            <TableCell className="px-6 py-4 text-sm text-gray-600">
-                              {item.completed_date ? formatDate(item.completed_date.getTime()) : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary Tab - Content from blendsheet-flow page */}
-      {activeTab === "summary" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Blendsheet Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoadingSummary ? (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-tea-600" />
-                <span className="ml-2">Loading summary...</span>
-              </div>
-            ) : summaryError ? (
-              <div className="text-center py-8">
-                <p className="text-red-600 mb-2">Error loading summary data</p>
-                <p className="text-sm text-gray-600">{summaryError.message}</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="px-6 py-3">Blendsheet No.</TableHead>
-                    <TableHead className="px-6 py-3 text-center">Batches</TableHead>
-                    <TableHead className="px-6 py-3 text-right">Planned (kg)</TableHead>
-                    <TableHead className="px-6 py-3 text-right">Effective Blend In (kg)</TableHead>
-                    <TableHead className="px-6 py-3 text-right">Blend Out (kg)</TableHead>
-                    <TableHead className="px-6 py-3 text-center">Efficiency</TableHead>
-                    <TableHead className="px-6 py-3 text-center">Blend In Time</TableHead>
-                    <TableHead className="px-6 py-3 text-center">Blend Out Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {blendsheetSummary && blendsheetSummary.length > 0 ? (
-                    blendsheetSummary.map((item: any) => {
-                      const planned = parseFloat(item.blendsheet_weight) || 0;
-                      const effectiveBlendIn = getEffectiveBlendInWeight(item);
-                      const blendOut = parseFloat(item.blend_out_weight) || 0;
-                      const efficiency =
-                        effectiveBlendIn > 0 && blendOut > 0
-                          ? ((blendOut / effectiveBlendIn) * 100).toFixed(1)
-                          : "0.0";
-
-                      const formatTimestamp = (timestamp: string) => {
-                        if (!timestamp || timestamp === "0") return "-";
-                        try {
-                          const date = new Date(parseInt(timestamp));
-                          return date.toLocaleString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          });
-                        } catch (error) {
-                          return "-";
-                        }
-                      };
-
-                      return (
-                        <TableRow key={item.blendsheet_no}>
-                          <TableCell className="px-6 py-4 font-medium">
-                            {item.blendsheet_no}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-center">
-                            {item.number_of_batches}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-right">
-                            {planned.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-right">
-                            {effectiveBlendIn.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-right">
-                            {blendOut > 0 ? (
-                              blendOut.toLocaleString()
-                            ) : (
-                              <span className="text-gray-400">- pending -</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-center">
-                            <span
-                              className={
-                                parseFloat(efficiency) > 95
-                                  ? "text-green-600 font-medium"
-                                  : parseFloat(efficiency) > 90
-                                  ? "text-amber-600"
-                                  : parseFloat(efficiency) > 0
-                                  ? "text-red-600"
-                                  : "text-gray-400"
-                              }
-                            >
-                              {parseFloat(efficiency) > 0 ? `${efficiency}%` : "-"}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-center text-sm">
-                            {formatTimestamp(item.blend_in_timestamp)}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-center text-sm">
-                            {formatTimestamp(item.blend_out_timestamp)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                        No summary data available
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Blend Balance Tab */}
-      {activeTab === "blendbalance" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Blend Balance Operations</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-6 py-3">Transfer ID</TableHead>
-                  <TableHead className="px-6 py-3">Blend Code</TableHead>
-                  <TableHead className="px-6 py-3">Weight</TableHead>
+                  <TableHead className="px-6 py-3 w-8"> </TableHead>
+                  <TableHead className="px-6 py-3">Blendsheet Number</TableHead>
+                  <TableHead className="px-6 py-3">Planned Weight</TableHead>
+                  <TableHead className="px-6 py-3">Blend-In Weight</TableHead>
+                  <TableHead className="px-6 py-3">Blend-Out Weight</TableHead>
+                  <TableHead className="px-6 py-3">No of Batches</TableHead>
+                  <TableHead className="px-6 py-3">Blend-In Time</TableHead>
+                  <TableHead className="px-6 py-3">Blend-Out Time</TableHead>
+                  <TableHead className="px-6 py-3">Status & Efficiency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockBlendbalanceData.map((item) => (
-                  <TableRow key={item.transfer_id}>
-                    <TableCell className="px-6 py-4 font-medium">{item.transfer_id}</TableCell>
-                    <TableCell className="px-6 py-4">{item.blend_code}</TableCell>
-                    <TableCell className="px-6 py-4">{item.weight.toFixed(2)} kg</TableCell>
-                  </TableRow>
-                ))}
+                {Array.isArray(displayData) &&
+                  displayData.map((item: BlendsheetData) => {
+                    if (!item || !item.blendsheet_no) return null;
+
+                    return (
+                      <React.Fragment key={item.blendsheet_no}>
+                        <TableRow
+                          onClick={
+                            getBlendsheetStatus(item) !== "DRAFT"
+                              ? () => toggleRowExpansion(item.blendsheet_no)
+                              : undefined
+                          }
+                          className={
+                            getBlendsheetStatus(item) !== "DRAFT"
+                              ? "cursor-pointer hover:bg-gray-50"
+                              : ""
+                          }
+                        >
+                          <TableCell className="px-6 py-4">
+                            {getBlendsheetStatus(item) !== "DRAFT" ? (
+                              expandedRows.has(item.blendsheet_no) ? (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-gray-500" />
+                              )
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {item.blendsheet_no} ({item.blend_code})
+                              </span>
+                              <span className="text-xs text-gray-400 mt-0.5">{item.remarks}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            {formatWeight(item.planned_weight)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="text-blue-600 font-medium">
+                              {formatWeight(calculateBlendInWeight(item))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="text-green-600 font-medium">
+                              {formatWeight(calculateBlendOutWeight(item))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="font-medium">
+                              {item.batches.length}/{item.no_of_batches}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {getLatestBlendInTime(item)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {getLatestBlendOutTime(item)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            {(() => {
+                              const status = getBlendsheetStatus(item);
+                              const efficiency = calculateBlendsheetEfficiency(item);
+
+                              if (status === "DRAFT") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    Draft
+                                  </span>
+                                );
+                              }
+
+                              if (status === "IN_PROGRESS") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                    In Progress
+                                    {efficiency ? ` • ${formatPercentage(efficiency)}` : ""}
+                                  </span>
+                                );
+                              }
+
+                              if (status === "COMPLETED") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    Completed
+                                    {efficiency ? ` • ${formatPercentage(efficiency)}` : ""}
+                                  </span>
+                                );
+                              }
+                            })()}
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expanded batch details - Only show if not in draft status */}
+                        {expandedRows.has(item.blendsheet_no) &&
+                          getBlendsheetStatus(item) !== "DRAFT" && (
+                            <TableRow key={`${item.blendsheet_no}-expanded`}>
+                              <TableCell colSpan={9} className="px-0 py-0 bg-gray-50">
+                                <div className="p-4">
+                                  <h3 className="font-medium text-gray-900 mb-3">
+                                    Batch Details for {item.blendsheet_no}
+                                  </h3>
+
+                                  {/* Child Table Header */}
+                                  <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
+                                    <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
+                                      <div>Item Code</div>
+                                      <div>Blend-In Weight</div>
+                                      <div>Blend-Out Weight</div>
+                                      <div>Blend-In Time</div>
+                                      <div>Blend-Out Time</div>
+                                      <div>Status & Efficiency</div>
+                                    </div>
+                                  </div>
+
+                                  {/* Child Table Body - Using actual batch data */}
+                                  <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
+                                    {item.batches.map((batch) => {
+                                      const batchEfficiency = calculateBatchEfficiency(batch);
+
+                                      return (
+                                        <div
+                                          key={batch.item_code}
+                                          className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
+                                        >
+                                          <div className="font-medium font-mono text-blue-600">
+                                            {batch.item_code}
+                                          </div>
+                                          <div className="text-blue-600 font-medium">
+                                            {formatWeight(batch.blend_in_weight)}
+                                          </div>
+                                          <div className="text-green-600 font-medium">
+                                            {batch.completed
+                                              ? formatWeight(batch.blend_out_weight)
+                                              : "-"}
+                                          </div>
+                                          <div className="text-sm text-gray-600">
+                                            {batch.blend_in_time}
+                                          </div>
+                                          <div className="text-sm text-gray-600">
+                                            {batch.blend_out_time || "-"}
+                                          </div>
+                                          <div>
+                                            {!batch.completed && (
+                                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                In Progress
+                                              </span>
+                                            )}
+                                            {batch.completed && (
+                                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                Completed
+                                                {batchEfficiency
+                                                  ? ` • ${formatPercentage(batchEfficiency)}`
+                                                  : ""}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                      </React.Fragment>
+                    );
+                  })}
               </TableBody>
             </Table>
+
+            {/* Pagination */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </CardContent>
         </Card>
       )}

@@ -171,3 +171,14 @@ export interface OrderDashboardFilters {
   order_code?: string;
   shipment_vehicle?: string;
 }
+
+// Order Schedule interface for the new table structure
+export interface OrderSchedule {
+  schedule_code: string;
+  schedule_date: string;
+  order_code: string;
+  shift: 'DAY' | 'NIGHT' | 'NIGHT & DAY';
+  section: string;
+  quantity: number;
+  filled_quantity: number;
+}

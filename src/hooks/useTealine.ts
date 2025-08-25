@@ -6,17 +6,9 @@ export const usePendingTealines = (filters?: TealineFilters) => {
   return useQuery({
     queryKey: ['tealines', 'pending', filters],
     queryFn: () => tealineService.getPending(filters),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchInterval: 1000 * 30, // 30 seconds
-  });
-};
-
-export const useTealineInventory = (filters?: TealineFilters) => {
-  return useQuery({
-    queryKey: ['tealines', 'inventory', filters],
-    queryFn: () => tealineService.getInventoryOptimized(filters),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchInterval: 1000 * 30, // 30 seconds
+    staleTime: 1000 * 60 * 2, // 2 minutes (shorter for better pagination response)
+    refetchInterval: 1000 * 60, // 1 minute (slower for better performance)
+    placeholderData: (previousData) => previousData, // Keep previous data during searches (React Query v5)
   });
 };
 
@@ -28,14 +20,6 @@ export const useTealineFilterOptions = () => {
   });
 };
 
-export const useTealineRecords = (itemCode: string, createdTs: string) => {
-  return useQuery({
-    queryKey: ['tealines', 'records', itemCode, createdTs],
-    queryFn: () => tealineService.getRecords(itemCode, createdTs),
-    enabled: !!itemCode && !!createdTs,
-  });
-};
-
 // Hook for the new inventory complete endpoint with meta data
 export const useTealineInventoryComplete = (filters?: TealineFilters) => {
   return useQuery({
@@ -43,5 +27,6 @@ export const useTealineInventoryComplete = (filters?: TealineFilters) => {
     queryFn: () => tealineService.getInventoryComplete(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchInterval: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData, // Keep previous data during searches (React Query v5)
   });
 };
