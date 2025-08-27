@@ -9,7 +9,8 @@ import {
   type OrderDashboardData,
   type OrderDashboardSummary,
   type OrderDashboardFilters,
-  type ShipmentEventWithContext
+  type ShipmentEventWithContext,
+  type OrderSchedule
 } from '../../types/order';
 import { amplifyApiClient } from '../amplifyClient';
 import { API_ENDPOINTS } from '../endpoints';
@@ -221,10 +222,77 @@ export const orderService = {
   },
 
   // Get order schedule
-  getOrderSchedule: async (filters?: any): Promise<any[]> => {
-    const response = await amplifyApiClient.get(API_ENDPOINTS.ORDER.SCHEDULE, filters);
-    const data = response?.data || response;
-    return Array.isArray(data) ? data : data?.schedule || [];
+  getOrderSchedule: async (filters?: {
+    schedule_date?: string;
+  }): Promise<OrderSchedule[]> => {
+    try {
+      const response = await amplifyApiClient.get(API_ENDPOINTS.ORDER.SCHEDULE, filters);
+      const data = response?.data || response;
+      const schedules = Array.isArray(data) ? data : data?.schedules || [];
+      
+      return schedules.map((schedule: any) => ({
+        schedule_code: String(schedule.schedule_code),
+        schedule_date: schedule.schedule_date,
+        order_code: schedule.order_code,
+        shift: schedule.shift,
+        section: schedule.section,
+        quantity: schedule.quantity || 0,
+        filled_quantity: calculateFilledQuantity(schedule),
+      }));
+    } catch (error) {
+      console.error('Error fetching order schedule:', error);
+      return [];
+    }
+  },
+
+  // Get order schedule with real-time analytics (paginated)
+  getOrderScheduleAnalytics: async (filters?: {
+    schedule_date?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    data: OrderSchedule[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      page: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> => {
+    try {
+      const response = await amplifyApiClient.get(API_ENDPOINTS.ORDER.SCHEDULE_ANALYTICS, filters);
+      
+      // Backend consistently returns: { data: [...], pagination: {...} }
+      return {
+        data: response.data.map((schedule: any) => ({
+          schedule_code: String(schedule.schedule_code),
+          schedule_date: schedule.schedule_date,
+          order_code: schedule.order_code,
+          shift: schedule.shift,
+          section: schedule.section,
+          quantity: schedule.quantity || 0,
+          filled_quantity: schedule.filled_quantity || 0,
+        })),
+        pagination: response.pagination,
+      };
+    } catch (error) {
+      console.error('Error fetching order schedule analytics:', error);
+      return {
+        data: [],
+        pagination: {
+          total: 0,
+          limit: 25,
+          offset: 0,
+          page: 1,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
   },
 
   // Dashboard-specific methods
@@ -412,3 +480,52 @@ export const orderService = {
       .slice(0, 20);
   },
 };
+
+// === HELPER FUNCTIONS ===
+
+// Calculate filled quantity based on accepted shipments and completion status
+function calculateFilledQuantity(schedule: any): number {
+  console.log('📊 Calculating filled quantity for schedule:', schedule.schedule_code, schedule);
+  
+  // If schedule is completed, return full quantity
+  if (schedule.completed) {
+    console.log('📊 Schedule completed, returning full quantity:', schedule.quantity);
+    return schedule.quantity || 0;
+  }
+  
+  // Get accepted shipments data from the API response
+  const acceptedShipments = schedule.accepted_shipments || [];
+  console.log('📊 Accepted shipments:', acceptedShipments);
+  
+  if (!Array.isArray(acceptedShipments) || acceptedShipments.length === 0) {
+    console.log('📊 No accepted shipments, returning 0');
+    return 0;
+  }
+  
+  // For now, use a refined estimation based on shipment data
+  // TODO: In the future, we could make additional API calls to get actual shipment quantities
+  // from the order_shipment table using the request_code and shipment_code
+  
+  const totalShipments = acceptedShipments.length;
+  const targetQuantity = schedule.quantity || 0;
+  
+  // More sophisticated estimation:
+  // - Each shipment typically handles a portion of the total order
+  // - Use diminishing returns to avoid over-estimation
+  let estimatedFillPercentage;
+  
+  if (totalShipments === 1) {
+    estimatedFillPercentage = 0.4; // Single shipment = ~40%
+  } else if (totalShipments === 2) {
+    estimatedFillPercentage = 0.7; // Two shipments = ~70%
+  } else if (totalShipments >= 3) {
+    estimatedFillPercentage = 0.9; // Three+ shipments = ~90%
+  } else {
+    estimatedFillPercentage = 0;
+  }
+  
+  const filledQuantity = Math.floor(targetQuantity * estimatedFillPercentage);
+  console.log('📊 Calculated filled quantity:', filledQuantity, `(${(estimatedFillPercentage * 100).toFixed(0)}% of ${targetQuantity})`);
+  
+  return filledQuantity;
+}

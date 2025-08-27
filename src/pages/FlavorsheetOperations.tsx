@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   RefreshCw,
   Search,
@@ -8,14 +8,13 @@ import {
   Loader2,
   FileDown,
   FileText,
-  Scale,
   ChevronDown,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { KpiCard } from "../components/ui/KpiCard";
 import { Input } from "../components/ui/Input";
-import { Select } from "../components/ui/Select";
 import {
   Table,
   TableBody,
@@ -25,310 +24,198 @@ import {
   TableRow,
 } from "../components/ui/Table";
 import { Pagination } from "../components/ui/Pagination";
-import { useFlavorsheets, useFlavorsheetDashboard } from "../hooks/useFlavorsheet";
+import { useFlavorsheetOperationsData } from "../hooks/useFlavorsheet";
 import {
   exportToCSV,
   exportToPDF,
-  formatDateForExport,
   formatWeightForExport,
   formatPercentageForExport,
   type ExportColumn,
 } from "../utils/exportUtils";
 
-type TabType = "flavorsheets" | "summary" | "flavorbalance" | "analytics";
 
 export function FlavorsheetOperations() {
-  const [activeTab, setActiveTab] = useState<TabType>("flavorsheets");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // For server-side search
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(3);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Fetch flavorsheet data
+  // Get browser's timezone offset in ±HH:MM format
+  const getBrowserTimezoneOffset = (): string => {
+    const offsetMinutes = new Date().getTimezoneOffset();
+    const offsetHours = Math.abs(Math.floor(offsetMinutes / 60));
+    const offsetMins = Math.abs(offsetMinutes % 60);
+    const sign = offsetMinutes <= 0 ? "+" : "-";
+
+    return `${sign}${offsetHours.toString().padStart(2, "0")}:${offsetMins
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const timezoneOffset = getBrowserTimezoneOffset();
+
+  // Debug: Log timezone offset
+  useEffect(() => {
+    console.log("Browser timezone offset:", timezoneOffset);
+  }, [timezoneOffset]);
+
+  // Fetch flavorsheet operations data with pagination and KPI metrics
   const {
+    data: operationsResponse,
+    isLoading,
+    isFetching,
     error,
     refetch,
-    isLoading: isLoadingSummary,
-  } = useFlavorsheets({
-    ...(statusFilter && { status: statusFilter }),
-    ...(searchTerm && { search: searchTerm }),
+  } = useFlavorsheetOperationsData({
+    page: currentPage,
+    limit: itemsPerPage,
+    timezone_offset: timezoneOffset,
+    filters: {
+      ...(searchQuery && { search: searchQuery }),
+    },
   });
 
-  // Fetch flavorsheet dashboard data
-  const {
-    data: flavorsheetSummary,
-  } = useFlavorsheetDashboard();
+  // Watch for fetch completion and clear user interaction state
+  useEffect(() => {
+    if (isUserInteracting && !isFetching) {
+      setIsUserInteracting(false);
+    }
+  }, [isFetching, isUserInteracting]);
 
-  // Mock flavorsheet data with expandable formula details
+  // Determine loading states based on existing data
+  const hasExistingData = !!operationsResponse;
+  const isInitialLoading = isLoading && !hasExistingData;
+  const isInteractionLoading = isUserInteracting && isFetching && hasExistingData;
+
+  // Mock data with new structure matching blendsheet operations pattern
   const mockFlavorsheetData = [
     {
-      id: "1",
-      flavorsheetNumber: "FS001",
-      flavorName: "Earl Grey Supreme",
-      totalWeight: "2,500 kg",
-      mixedWeight: "2,485 kg",
-      outWeight: "2,470 kg",
-      numberOfFormulas: 4,
-      mixInTime: "09:00",
-      mixOutTime: "14:30",
-      efficiency: "98.8%",
-      status: "COMPLETED",
-      formulas: [
+      flavorsheet_no: "FS001",
+      flavor_code: "EARL-GREY-SUPREME",
+      remarks: "Premium Earl Grey blend for export market",
+      planned_weight: 2500,
+      no_of_batches: 3,
+      batches: [
         {
-          formulaId: "F001",
-          ingredientCode: "BOP001",
-          ingredient: "Black Orange Pekoe",
-          weight: "1,200 kg",
-          percentage: "48.0%",
-          addTime: "09:00",
-          status: "Added"
+          item_code: "FS001-B01",
+          created_ts: new Date("2024-01-15T08:00:00"),
+          mix_in_weight: 850,
+          mix_in_time: "08:00 - 10:30",
+          mix_out_weight: 845,
+          mix_out_time: "10:30 - 12:00",
+          completed: true,
         },
         {
-          formulaId: "F002",
-          ingredientCode: "EG002",
-          ingredient: "Earl Grey Oil",
-          weight: "50 kg",
-          percentage: "2.0%",
-          addTime: "12:00",
-          status: "Added"
+          item_code: "FS001-B02",
+          created_ts: new Date("2024-01-15T13:00:00"),
+          mix_in_weight: 820,
+          mix_in_time: "13:00 - 15:15",
+          mix_out_weight: 815,
+          mix_out_time: "15:15 - 16:45",
+          completed: true,
         },
         {
-          formulaId: "F003",
-          ingredientCode: "COR003",
-          ingredient: "Cornflower Petals",
-          weight: "125 kg",
-          percentage: "5.0%",
-          addTime: "13:15",
-          status: "Added"
+          item_code: "FS001-B03",
+          created_ts: new Date("2024-01-16T09:00:00"),
+          mix_in_weight: 830,
+          mix_in_time: "09:00 - ongoing",
+          mix_out_weight: 0,
+          mix_out_time: "",
+          completed: false,
         },
-        {
-          formulaId: "F004",
-          ingredientCode: "BER004",
-          ingredient: "Bergamot Essence",
-          weight: "75 kg",
-          percentage: "3.0%",
-          addTime: "14:00",
-          status: "Added"
-        }
-      ]
+      ],
     },
     {
-      id: "2",
-      flavorsheetNumber: "FS002",
-      flavorName: "Jasmine Dragon Pearls",
-      totalWeight: "1,800 kg",
-      mixedWeight: "1,785 kg",
-      outWeight: "1,770 kg",
-      numberOfFormulas: 3,
-      mixInTime: "15:00",
-      mixOutTime: "19:45",
-      efficiency: "98.3%",
-      status: "COMPLETED",
-      formulas: [
+      flavorsheet_no: "FS002",
+      flavor_code: "JASMINE-DRAGON-PEARLS",
+      remarks: "Premium jasmine tea for specialty market",
+      planned_weight: 1800,
+      no_of_batches: 2,
+      batches: [
         {
-          formulaId: "F005",
-          ingredientCode: "GP001",
-          ingredient: "Green Pearls Base",
-          weight: "1,400 kg",
-          percentage: "77.8%",
-          addTime: "15:00",
-          status: "Added"
+          item_code: "FS002-B01",
+          created_ts: new Date("2024-01-14T14:00:00"),
+          mix_in_weight: 900,
+          mix_in_time: "14:00 - 16:30",
+          mix_out_weight: 895,
+          mix_out_time: "16:30 - 18:00",
+          completed: true,
         },
         {
-          formulaId: "F006",
-          ingredientCode: "JAS002",
-          ingredient: "Jasmine Flowers",
-          weight: "300 kg",
-          percentage: "16.7%",
-          addTime: "17:30",
-          status: "Added"
+          item_code: "FS002-B02",
+          created_ts: new Date("2024-01-15T10:00:00"),
+          mix_in_weight: 900,
+          mix_in_time: "10:00 - 12:45",
+          mix_out_weight: 890,
+          mix_out_time: "12:45 - 14:15",
+          completed: true,
         },
-        {
-          formulaId: "F007",
-          ingredientCode: "JOI003",
-          ingredient: "Jasmine Oil",
-          weight: "85 kg",
-          percentage: "4.7%",
-          addTime: "19:00",
-          status: "Added"
-        }
-      ]
+      ],
     },
     {
-      id: "3",
-      flavorsheetNumber: "FS003",
-      flavorName: "Chai Masala Blend",
-      totalWeight: "2,200 kg",
-      mixedWeight: "2,190 kg",
-      outWeight: "0 kg",
-      numberOfFormulas: 5,
-      mixInTime: "10:30",
-      mixOutTime: "-",
-      efficiency: "0.0%",
-      status: "IN_PROGRESS",
-      formulas: [
-        {
-          formulaId: "F008",
-          ingredientCode: "BLA001",
-          ingredient: "Black Tea Base",
-          weight: "1,100 kg",
-          percentage: "50.0%",
-          addTime: "10:30",
-          status: "Added"
-        },
-        {
-          formulaId: "F009",
-          ingredientCode: "CIN002",
-          ingredient: "Ceylon Cinnamon",
-          weight: "220 kg",
-          percentage: "10.0%",
-          addTime: "12:00",
-          status: "Added"
-        },
-        {
-          formulaId: "F010",
-          ingredientCode: "CAR003",
-          ingredient: "Green Cardamom",
-          weight: "330 kg",
-          percentage: "15.0%",
-          addTime: "13:30",
-          status: "Added"
-        },
-        {
-          formulaId: "F011",
-          ingredientCode: "GIN004",
-          ingredient: "Fresh Ginger",
-          weight: "440 kg",
-          percentage: "20.0%",
-          addTime: "14:45",
-          status: "Pending"
-        },
-        {
-          formulaId: "F012",
-          ingredientCode: "CLS005",
-          ingredient: "Whole Cloves",
-          weight: "110 kg",
-          percentage: "5.0%",
-          addTime: "-",
-          status: "Pending"
-        }
-      ]
+      flavorsheet_no: "FS003",
+      flavor_code: "CHAI-MASALA-BLEND",
+      remarks: "Traditional chai spice blend",
+      planned_weight: 3200,
+      no_of_batches: 4,
+      batches: [],
     }
   ];
 
-  // Mock flavorbalance data for the Flavor Balance tab
-  const mockFlavorbalanceData = [
-    { transfer_id: "TRF-F001", flavor_code: "FL-2024-001", weight: 450.5 },
-    { transfer_id: "TRF-F002", flavor_code: "FL-2024-002", weight: 380.0 },
-    { transfer_id: "TRF-F003", flavor_code: "FL-2024-003", weight: 520.75 },
-    { transfer_id: "TRF-F004", flavor_code: "FL-2024-004", weight: 275.25 },
-    { transfer_id: "TRF-F005", flavor_code: "FL-2024-005", weight: 395.8 },
-  ];
-
-  const statusOptions = [
-    { value: "DRAFT", label: "Draft" },
-    { value: "IN_PROGRESS", label: "In Progress" },
-    { value: "COMPLETED", label: "Completed" },
-    { value: "SHIPPED", label: "Shipped" },
-  ];
-
-  // Use mock data for now - expand to test pagination
-  const expandedMockData = [
-    ...mockFlavorsheetData,
-    // Add more mock items to test pagination
-    {
-      id: "4",
-      flavorsheetNumber: "FS004",
-      flavorName: "English Breakfast Premium",
-      totalWeight: "3,000 kg",
-      mixedWeight: "2,995 kg",
-      outWeight: "2,980 kg",
-      numberOfFormulas: 3,
-      mixInTime: "08:00",
-      mixOutTime: "12:30",
-      efficiency: "99.3%",
-      status: "COMPLETED",
-      formulas: [
-        {
-          formulaId: "F013",
-          ingredientCode: "CEY001",
-          ingredient: "Ceylon Black Tea",
-          weight: "1,500 kg",
-          percentage: "50.0%",
-          addTime: "08:00",
-          status: "Added"
-        },
-        {
-          formulaId: "F014",
-          ingredientCode: "ASS002",
-          ingredient: "Assam Tea",
-          weight: "900 kg",
-          percentage: "30.0%",
-          addTime: "10:00",
-          status: "Added"
-        },
-        {
-          formulaId: "F015",
-          ingredientCode: "KEE003",
-          ingredient: "Keemun Tea",
-          weight: "600 kg",
-          percentage: "20.0%",
-          addTime: "11:30",
-          status: "Added"
-        }
-      ]
+  // Use API data, fallback to mock data for development
+  const flavorsheetData = operationsResponse?.data || mockFlavorsheetData;
+  const metaData = operationsResponse?.meta || {
+    total_items: 0,
+    current_page_items: 0,
+    total_flavorsheets: 0,
+    total_batches_created: 0,
+    active_flavorsheets: 0,
+    avg_efficiency_percentage: 0,
+    total_planned_weight: 0,
+    total_mix_in_weight: 0,
+    total_mix_out_weight: 0,
+    pagination: {
+      limit: 25,
+      offset: 0,
+      total_count: 0,
+      total_pages: 0,
+      current_page: 1,
+      has_next: false,
+      has_previous: false,
     },
-    {
-      id: "5",
-      flavorsheetNumber: "FS005",
-      flavorName: "Chamomile Dreams",
-      totalWeight: "1,200 kg",
-      mixedWeight: "1,190 kg",
-      outWeight: "0 kg",
-      numberOfFormulas: 2,
-      mixInTime: "14:00",
-      mixOutTime: "-",
-      efficiency: "0.0%",
-      status: "IN_PROGRESS",
-      formulas: [
-        {
-          formulaId: "F016",
-          ingredientCode: "CHA001",
-          ingredient: "Chamomile Flowers",
-          weight: "960 kg",
-          percentage: "80.0%",
-          addTime: "14:00",
-          status: "Added"
-        },
-        {
-          formulaId: "F017",
-          ingredientCode: "HON002",
-          ingredient: "Honey Granules",
-          weight: "240 kg",
-          percentage: "20.0%",
-          addTime: "-",
-          status: "Pending"
-        }
-      ]
-    }
-  ];
-  
-  const displayData = expandedMockData;
-  const totalItems = expandedMockData.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  };
 
-  // Reset to first page when filters change
-  const handleFilterChange = (setter: (value: string) => void) => (value: string) => {
-    setter(value);
+  // Server-side pagination from API response
+  const displayData = flavorsheetData;
+  const totalItems = metaData.pagination?.total_count || 0;
+  const totalPages = metaData.pagination?.total_pages || 1;
+
+  // Handle server-side search
+  const handleSearch = () => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setSearchQuery(searchTerm.trim());
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  // Handle clear search
+  const handleClearSearch = () => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setSearchTerm("");
+    setSearchQuery("");
     setCurrentPage(1);
   };
 
+  // Handle pagination changes
   const handlePageChange = (page: number) => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
     setCurrentPage(page);
   };
 
+  // Handle page size changes
   const handlePageSizeChange = (pageSize: number) => {
+    setIsUserInteracting(true); // Mark as user-initiated interaction
     setItemsPerPage(pageSize);
     setCurrentPage(1);
   };
@@ -343,28 +230,155 @@ export function FlavorsheetOperations() {
     setExpandedRows(newExpandedRows);
   };
 
+  const formatWeight = (weight: number | undefined | null) => {
+    if (weight === undefined || weight === null || isNaN(weight)) {
+      return "0.00 kg";
+    }
+    // Convert from grams to kg if weight is greater than 1000
+    const weightInKg = weight > 1000 ? weight / 1000 : weight;
+    return `${weightInKg.toFixed(2)} kg`;
+  };
+
+  const formatPercentage = (value: number | undefined | null) => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return "0.0%";
+    }
+    return `${value.toFixed(1)}%`;
+  };
+
+  // Calculate mix-in weight (sum of mix_in_weight from all batches)
+  const calculateMixInWeight = (item: any) => {
+    return item.batches.reduce((sum: number, batch: any) => sum + batch.mix_in_weight, 0);
+  };
+
+  // Calculate mix-out weight (sum of mix_out_weight from all batches)
+  const calculateMixOutWeight = (item: any) => {
+    return item.batches.reduce((sum: number, batch: any) => sum + batch.mix_out_weight, 0);
+  };
+
+  // Get mix-in time range from the latest batch (by created_ts)
+  const getLatestMixInTime = (item: any) => {
+    if (item.batches.length === 0) return "-";
+
+    // Find the latest batch by created_ts
+    const latestBatch = item.batches.reduce((latest: any, current: any) =>
+      current.created_ts > latest.created_ts ? current : latest
+    );
+
+    return latestBatch.mix_in_time || "-";
+  };
+
+  // Get mix-out time range from the latest batch (by created_ts)
+  const getLatestMixOutTime = (item: any) => {
+    if (item.batches.length === 0) return "-";
+
+    // Find the latest batch by created_ts
+    const latestBatch = item.batches.reduce((latest: any, current: any) =>
+      current.created_ts > latest.created_ts ? current : latest
+    );
+
+    return latestBatch.mix_out_time || "-";
+  };
+
+  // Calculate flavorsheet status based on batch data
+  const getFlavorsheetStatus = (item: any): "DRAFT" | "IN_PROGRESS" | "COMPLETED" => {
+    // Draft if no batches created
+    if (item.batches.length === 0) {
+      return "DRAFT";
+    }
+
+    // Completed if all batches are created AND all are marked as completed
+    if (
+      item.batches.length === item.no_of_batches &&
+      item.batches.every((batch: any) => batch.completed)
+    ) {
+      return "COMPLETED";
+    }
+
+    // Otherwise, in progress
+    return "IN_PROGRESS";
+  };
+
+  // Calculate efficiency for a single batch (only if completed)
+  const calculateBatchEfficiency = (batch: any): number | null => {
+    if (!batch.completed || batch.mix_in_weight === 0) {
+      return null;
+    }
+    return (batch.mix_out_weight / batch.mix_in_weight) * 100;
+  };
+
+  // Calculate overall flavorsheet efficiency (average of completed batch efficiencies)
+  const calculateFlavorsheetEfficiency = (item: any): number | null => {
+    const completedBatches = item.batches.filter((batch: any) => batch.completed);
+
+    if (completedBatches.length === 0) {
+      return null;
+    }
+
+    const efficiencies = completedBatches
+      .map((batch: any) => calculateBatchEfficiency(batch))
+      .filter((efficiency: any): efficiency is number => efficiency !== null);
+
+    if (efficiencies.length === 0) {
+      return null;
+    }
+
+    return efficiencies.reduce((sum: number, eff: number) => sum + eff, 0) / efficiencies.length;
+  };
+
+  // Calculate KPIs from mock data if API data not available
+  if (!operationsResponse && flavorsheetData === mockFlavorsheetData) {
+    const mockKPIData = {
+      total_flavorsheets: mockFlavorsheetData.length,
+      total_planned_weight: mockFlavorsheetData.reduce((sum, item) => sum + item.planned_weight, 0),
+      total_mix_in_weight: mockFlavorsheetData.reduce((sum, item) => sum + calculateMixInWeight(item), 0),
+      total_mix_out_weight: mockFlavorsheetData.reduce((sum, item) => sum + calculateMixOutWeight(item), 0),
+      total_batches_created: mockFlavorsheetData.reduce((sum, item) => sum + item.batches.length, 0),
+      total_count: mockFlavorsheetData.length,
+    };
+    
+    // Update metaData with calculated values for mock data only
+    metaData.total_items = mockKPIData.total_count;
+    metaData.current_page_items = mockKPIData.total_count;
+    metaData.total_flavorsheets = mockKPIData.total_flavorsheets;
+    metaData.total_batches_created = mockKPIData.total_batches_created;
+    metaData.active_flavorsheets = mockKPIData.total_flavorsheets;
+    metaData.total_planned_weight = mockKPIData.total_planned_weight;
+    metaData.total_mix_in_weight = mockKPIData.total_mix_in_weight;
+    metaData.total_mix_out_weight = mockKPIData.total_mix_out_weight;
+    metaData.pagination.total_count = mockKPIData.total_count;
+    metaData.pagination.total_pages = Math.ceil(mockKPIData.total_count / 25);
+  }
+
+  // Log meta data to debug KPI values
+  console.log('FlavorsheetOperations metaData:', metaData);
+  console.log('API operationsResponse available:', !!operationsResponse);
+
 
   // Export functions
   const handleExportFlavorsheets = (format: "csv" | "pdf") => {
     const columns: ExportColumn[] = [
       { key: "flavorsheet_no", header: "Flavorsheet Number" },
-      { key: "flavor_name", header: "Flavor Name" },
-      { key: "status", header: "Status" },
-      { key: "total_weight", header: "Total Weight (kg)" },
-      { key: "mixed_weight", header: "Mixed Weight (kg)" },
+      { key: "flavor_code", header: "Flavor Code" },
+      { key: "remarks", header: "Remarks" },
+      { key: "budget_weight", header: "Budget Weight (kg)" },
+      { key: "actual_weight", header: "Actual Weight (kg)" },
       { key: "efficiency", header: "Efficiency (%)" },
-      { key: "formulas_count", header: "Number of Formulas" },
-      { key: "created_ts", header: "Created Date" },
+      { key: "variance", header: "Variance (kg)" },
     ];
 
-    const exportData = displayData.map((item: any) => ({
-      ...item,
-      total_weight: formatWeightForExport(item.actual_weight || 0),
-      mixed_weight: formatWeightForExport(item.actual_weight || 0),
-      efficiency: formatPercentageForExport(item.efficiency || 0),
-      formulas_count: item.numberOfFormulas || 0,
-      created_ts: item.created_ts ? formatDateForExport(item.created_ts) : "N/A",
-    }));
+    const exportData = displayData.map((item: any) => {
+      const mixOutWeight = calculateMixOutWeight(item);
+      const efficiency = calculateFlavorsheetEfficiency(item);
+
+      return {
+        ...item,
+        budget_weight: formatWeightForExport(item.planned_weight),
+        actual_weight: formatWeightForExport(mixOutWeight),
+        efficiency: formatPercentageForExport(efficiency || 0),
+        variance: formatWeightForExport(mixOutWeight - item.planned_weight),
+      };
+    });
 
     const filename = `flavorsheet_operations_${new Date().toISOString().split("T")[0]}`;
 
@@ -381,14 +395,13 @@ export function FlavorsheetOperations() {
     }
   };
 
+  // Use KPI data from API response
+  const totalFlavorsheets = metaData.total_flavorsheets || 0;
+  const totalPlanned = metaData.total_planned_weight || 0;
+  const totalEffectiveMixIn = metaData.total_mix_in_weight || 0;
+  const totalMixOut = metaData.total_mix_out_weight || 0;
 
-  // Use flavorsheet summary data for KPIs if available, otherwise use mock data
-  const totalFlavorsheets = flavorsheetSummary?.active_flavorsheets || totalItems || 5;
-  const totalPlanned = 15000; // Mock planned weight
-  const totalEffectiveMixIn = 14800; // Mock effective mix in
-  const totalMixOut = 14500; // Mock mix out
-
-  if (isLoadingSummary) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-tea-600" />
@@ -474,7 +487,7 @@ export function FlavorsheetOperations() {
         />
 
         <KpiCard
-          title="Total Effective Mix In"
+          title="Total Mix In"
           value={`${totalEffectiveMixIn.toLocaleString()} kg`}
           icon={BarChart3}
           iconColor="#237c4b"
@@ -494,68 +507,67 @@ export function FlavorsheetOperations() {
         />
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-64">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search by flavorsheet code..."
-                  value={searchTerm}
-                  onChange={(e) => handleFilterChange(setSearchTerm)(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search flavorsheet number, flavor code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
+                className="pl-10"
+              />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={handleFilterChange(setStatusFilter)}
-              placeholder="All Status"
-              options={statusOptions}
-              className="w-40"
-            />
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-md bg-tea-600 px-4 py-2 text-sm font-medium text-white hover:bg-tea-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isInteractionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Tab Navigation */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex border-b">
-            <button
-              onClick={() => setActiveTab("flavorsheets")}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "flavorsheets"
-                  ? "border-tea-600 text-tea-600 bg-tea-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Package2 className="h-4 w-4" />
-              Flavorsheets ({totalItems})
-            </button>
-            <button
-              onClick={() => setActiveTab("flavorbalance")}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "flavorbalance"
-                  ? "border-tea-600 text-tea-600 bg-tea-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <Scale className="h-4 w-4" />
-              Flavor Balance
-            </button>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Tab Content */}
-      {activeTab === "flavorsheets" && (
+      {/* Flavorsheets Table */}
+      {isInteractionLoading ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-tea-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-900">Updating results...</p>
+              <p className="text-xs text-gray-500">Filtering flavorsheet data</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>
-              Flavorsheets ({totalItems} total)
+              Flavorsheets ({totalItems} total, showing {(currentPage - 1) * itemsPerPage + 1} -{" "}
+              {Math.min(currentPage * itemsPerPage, totalItems)})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -564,105 +576,184 @@ export function FlavorsheetOperations() {
                 <TableRow>
                   <TableHead className="px-6 py-3 w-8"> </TableHead>
                   <TableHead className="px-6 py-3">Flavorsheet Number</TableHead>
-                  <TableHead className="px-6 py-3">Total Weight</TableHead>
-                  <TableHead className="px-6 py-3">Mixed Weight</TableHead>
-                  <TableHead className="px-6 py-3">Out Weight</TableHead>
-                  <TableHead className="px-6 py-3">Formulas</TableHead>
-                  <TableHead className="px-6 py-3">Mix In Time</TableHead>
-                  <TableHead className="px-6 py-3">Mix Out Time</TableHead>
-                  <TableHead className="px-6 py-3">Efficiency</TableHead>
+                  <TableHead className="px-6 py-3">Planned Weight</TableHead>
+                  <TableHead className="px-6 py-3">Mix-In Weight</TableHead>
+                  <TableHead className="px-6 py-3">Mix-Out Weight</TableHead>
+                  <TableHead className="px-6 py-3">No of Batches</TableHead>
+                  <TableHead className="px-6 py-3">Mix-In Time</TableHead>
+                  <TableHead className="px-6 py-3">Mix-Out Time</TableHead>
+                  <TableHead className="px-6 py-3">Status & Efficiency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayData.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <TableRow 
-                      onClick={() => toggleRowExpansion(item.id)}
-                    >
-                      <TableCell className="px-6 py-4">
-                        {expandedRows.has(item.id) ? (
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
-                        )}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 font-medium">
-                        {item.flavorsheetNumber}
-                      </TableCell>
-                      <TableCell className="px-6 py-4">{item.totalWeight}</TableCell>
-                      <TableCell className="px-6 py-4">{item.mixedWeight}</TableCell>
-                      <TableCell className="px-6 py-4">{item.outWeight}</TableCell>
-                      <TableCell className="px-6 py-4">{item.numberOfFormulas}</TableCell>
-                      <TableCell className="px-6 py-4">{item.mixInTime}</TableCell>
-                      <TableCell className="px-6 py-4">{item.mixOutTime}</TableCell>
-                      <TableCell className="px-6 py-4">
-                        <span className={
-                          parseFloat(item.efficiency) > 95
-                            ? "text-green-600 font-medium"
-                            : parseFloat(item.efficiency) > 90
-                            ? "text-amber-600"
-                            : parseFloat(item.efficiency) > 0
-                            ? "text-red-600"
-                            : "text-gray-400"
-                        }>
-                          {item.efficiency}
-                        </span>
-                      </TableCell>
-                    </TableRow>
+                {Array.isArray(displayData) &&
+                  displayData.map((item: any) => {
+                    if (!item || !item.flavorsheet_no) return null;
 
-                    {/* Expanded formula details */}
-                    {expandedRows.has(item.id) && (
-                      <TableRow key={`${item.id}-expanded`}>
-                        <TableCell colSpan={9} className="px-0 py-0 bg-gray-50">
-                          <div className="p-4">
-                            <h3 className="font-medium text-gray-900 mb-3">
-                              Formula Details for {item.flavorName}
-                            </h3>
-                            
-                            {/* Child Table Header */}
-                            <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
-                              <div className="grid grid-cols-7 gap-4 p-3 text-sm font-medium text-gray-900">
-                                <div>Formula ID</div>
-                                <div>Ingredient Code</div>
-                                <div>Ingredient Name</div>
-                                <div>Weight</div>
-                                <div>Percentage</div>
-                                <div>Add Time</div>
-                                <div>Status</div>
-                              </div>
+                    return (
+                      <React.Fragment key={item.flavorsheet_no}>
+                        <TableRow
+                          onClick={
+                            getFlavorsheetStatus(item) !== "DRAFT"
+                              ? () => toggleRowExpansion(item.flavorsheet_no)
+                              : undefined
+                          }
+                          className={
+                            getFlavorsheetStatus(item) !== "DRAFT"
+                              ? "cursor-pointer hover:bg-gray-50"
+                              : ""
+                          }
+                        >
+                          <TableCell className="px-6 py-4">
+                            {getFlavorsheetStatus(item) !== "DRAFT" ? (
+                              expandedRows.has(item.flavorsheet_no) ? (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-gray-500" />
+                              )
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {item.flavorsheet_no} ({item.flavor_code})
+                              </span>
+                              <span className="text-xs text-gray-400 mt-0.5">{item.remarks}</span>
                             </div>
-                            
-                            {/* Child Table Body */}
-                            <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
-                              {item.formulas.map((formula) => (
-                                <div 
-                                  key={formula.formulaId}
-                                  className="grid grid-cols-7 gap-4 p-3 text-sm hover:bg-white"
-                                >
-                                  <div className="font-medium">{formula.formulaId}</div>
-                                  <div className="font-mono text-blue-600">{formula.ingredientCode}</div>
-                                  <div className="font-medium">{formula.ingredient}</div>
-                                  <div>{formula.weight}</div>
-                                  <div className="font-medium text-green-600">{formula.percentage}</div>
-                                  <div>{formula.addTime}</div>
-                                  <div>
-                                    <span className={`px-2 py-1 rounded text-xs ${
-                                      formula.status === "Added" 
-                                        ? "bg-green-100 text-green-800" 
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}>
-                                      {formula.status}
-                                    </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            {formatWeight(item.planned_weight)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="text-blue-600 font-medium">
+                              {formatWeight(calculateMixInWeight(item))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="text-green-600 font-medium">
+                              {formatWeight(calculateMixOutWeight(item))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <span className="font-medium">
+                              {item.batches.length}/{item.no_of_batches}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {getLatestMixInTime(item)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-sm text-gray-600">
+                            {getLatestMixOutTime(item)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            {(() => {
+                              const status = getFlavorsheetStatus(item);
+                              const efficiency = calculateFlavorsheetEfficiency(item);
+
+                              if (status === "DRAFT") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                    Draft
+                                  </span>
+                                );
+                              }
+
+                              if (status === "IN_PROGRESS") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                    In Progress
+                                    {efficiency ? ` • ${formatPercentage(efficiency)}` : ""}
+                                  </span>
+                                );
+                              }
+
+                              if (status === "COMPLETED") {
+                                return (
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    Completed
+                                    {efficiency ? ` • ${formatPercentage(efficiency)}` : ""}
+                                  </span>
+                                );
+                              }
+                            })()} 
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expanded batch details - Only show if not in draft status */}
+                        {expandedRows.has(item.flavorsheet_no) &&
+                          getFlavorsheetStatus(item) !== "DRAFT" && (
+                            <TableRow key={`${item.flavorsheet_no}-expanded`}>
+                              <TableCell colSpan={9} className="px-0 py-0 bg-gray-50">
+                                <div className="p-4">
+                                  <h3 className="font-medium text-gray-900 mb-3">
+                                    Batch Details for {item.flavorsheet_no}
+                                  </h3>
+
+                                  {/* Child Table Header */}
+                                  <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
+                                    <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
+                                      <div>Item Code</div>
+                                      <div>Mix-In Weight</div>
+                                      <div>Mix-Out Weight</div>
+                                      <div>Mix-In Time</div>
+                                      <div>Mix-Out Time</div>
+                                      <div>Status & Efficiency</div>
+                                    </div>
+                                  </div>
+
+                                  {/* Child Table Body - Using actual batch data */}
+                                  <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
+                                    {item.batches.map((batch: any) => {
+                                      const batchEfficiency = calculateBatchEfficiency(batch);
+
+                                      return (
+                                        <div
+                                          key={batch.item_code}
+                                          className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
+                                        >
+                                          <div className="font-medium font-mono text-blue-600">
+                                            {batch.item_code}
+                                          </div>
+                                          <div className="text-blue-600 font-medium">
+                                            {formatWeight(batch.mix_in_weight)}
+                                          </div>
+                                          <div className="text-green-600 font-medium">
+                                            {batch.completed
+                                              ? formatWeight(batch.mix_out_weight)
+                                              : "-"}
+                                          </div>
+                                          <div className="text-sm text-gray-600">
+                                            {batch.mix_in_time}
+                                          </div>
+                                          <div className="text-sm text-gray-600">
+                                            {batch.mix_out_time || "-"}
+                                          </div>
+                                          <div>
+                                            {!batch.completed && (
+                                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                In Progress
+                                              </span>
+                                            )}
+                                            {batch.completed && (
+                                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                Completed
+                                                {batchEfficiency
+                                                  ? ` • ${formatPercentage(batchEfficiency)}`
+                                                  : ""}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                      </React.Fragment>
+                    );
+                  })}
               </TableBody>
             </Table>
 
@@ -675,36 +766,6 @@ export function FlavorsheetOperations() {
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
             />
-          </CardContent>
-        </Card>
-      )}
-
-
-      {/* Flavor Balance Tab */}
-      {activeTab === "flavorbalance" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Flavor Balance Operations</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-6 py-3">Transfer ID</TableHead>
-                  <TableHead className="px-6 py-3">Flavor Code</TableHead>
-                  <TableHead className="px-6 py-3">Weight</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockFlavorbalanceData.map((item) => (
-                  <TableRow key={item.transfer_id}>
-                    <TableCell className="px-6 py-4 font-medium">{item.transfer_id}</TableCell>
-                    <TableCell className="px-6 py-4">{item.flavor_code}</TableCell>
-                    <TableCell className="px-6 py-4">{item.weight.toFixed(2)} kg</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
       )}

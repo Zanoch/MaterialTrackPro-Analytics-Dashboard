@@ -130,44 +130,9 @@ export function OrderStatusDashboard() {
       {/* Filters */}
       <Card>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-4">
-              <Select
-                value={filters.date_from || ''}
-                onValueChange={(value) => handleFilterChange('date_from', value)}
-                placeholder="Select Date"
-                options={[
-                  { value: new Date().toISOString().split('T')[0], label: 'Today' },
-                  { value: new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0], label: 'Yesterday' },
-                  { value: new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0], label: 'Last Week' },
-                ]}
-                className="w-40"
-              />
-
-              <Select
-                value={Array.isArray(filters.status) ? filters.status[0] || '' : filters.status || ''}
-                onValueChange={(value) => handleFilterChange('status', value ? [value] : [])}
-                placeholder="All Status"
-                options={[
-                  { value: 'APPROVAL_REQUESTED', label: '⏳ Approval Requested' },
-                  { value: 'SHIPMENT_ACCEPTED', label: '📦 Accepted' },
-                  { value: 'SHIPMENT_DISPATCHED', label: '🚚 In Transit' },
-                  { value: 'RECEIVED', label: '✔️ Received' },
-                ]}
-                className="w-48"
-              />
-
-              <Input
-                type="text"
-                placeholder="Vehicle number..."
-                value={filters.shipment_vehicle || ''}
-                onChange={(e) => handleFilterChange('shipment_vehicle', e.target.value)}
-                className="w-40"
-              />
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center space-x-2 ml-auto">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* View Mode Toggle - Left Side */}
+            <div className="flex items-center space-x-2">
               <div className="flex rounded-md border border-gray-200">
                 <button
                   onClick={() => setViewMode('material-requests')}
@@ -190,16 +155,55 @@ export function OrderStatusDashboard() {
                   Order Schedules
                 </button>
               </div>
-
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-red-600 hover:text-red-700"
-                >
-                  Clear Filters ({activeFiltersCount})
-                </button>
-              )}
             </div>
+
+            {/* Filter controls - Right Side (only show for material-requests) */}
+            {viewMode === 'material-requests' && (
+              <div className="flex items-center space-x-4">
+                <Select
+                  value={filters.date_from || ''}
+                  onValueChange={(value) => handleFilterChange('date_from', value)}
+                  placeholder="Select Date"
+                  options={[
+                    { value: new Date().toISOString().split('T')[0], label: 'Today' },
+                    { value: new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0], label: 'Yesterday' },
+                    { value: new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0], label: 'Last Week' },
+                  ]}
+                  className="w-40"
+                />
+
+                <Select
+                  value={Array.isArray(filters.status) ? filters.status[0] || '' : filters.status || ''}
+                  onValueChange={(value) => handleFilterChange('status', value ? [value] : [])}
+                  placeholder="All Status"
+                  options={[
+                    { value: 'APPROVAL_REQUESTED', label: '⏳ Approval Requested' },
+                    { value: 'SHIPMENT_ACCEPTED', label: '📦 Accepted' },
+                    { value: 'SHIPMENT_DISPATCHED', label: '🚚 In Transit' },
+                    { value: 'RECEIVED', label: '✔️ Received' },
+                  ]}
+                  className="w-48"
+                />
+
+                <Input
+                  type="text"
+                  placeholder="Vehicle number..."
+                  value={filters.shipment_vehicle || ''}
+                  onChange={(e) => handleFilterChange('shipment_vehicle', e.target.value)}
+                  className="w-40"
+                />
+
+                {/* Clear filters button */}
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-red-600 hover:text-red-700"
+                  >
+                    Clear Filters ({activeFiltersCount})
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

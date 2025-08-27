@@ -17,14 +17,7 @@ export const API_ENDPOINTS = {
   
   // Flavorsheet endpoints
   FLAVORSHEET: {
-    ALL: '/central/flavorsheet',
-    ADMIN: '/central/admin/flavorsheet',
-    ADMIN_SEARCH: '/central/admin/flavorsheet/search',
-    USER_SEARCH: '/central/flavorsheet/search',
-    BATCH: '/central/flavorsheet/batch',
-    BATCH_SEARCH: '/central/flavorsheet/batch/search',
-    RECORD: '/central/flavorsheet/record',
-    DASHBOARD_SUMMARY: '/central/admin/flavorsheet/dashboard-summary',
+    OPERATIONS_DATA: '/central/admin/flavorsheet/operations-data',
   },
   
   // Herbline endpoints
@@ -51,6 +44,7 @@ export const API_ENDPOINTS = {
     LIST: '/order',
     PLAN: '/order/plan',
     SCHEDULE: '/order/schedule',
+    SCHEDULE_ANALYTICS: '/order/schedule/analytics',
     SHIPMENT: '/order/shipment',
   },
   

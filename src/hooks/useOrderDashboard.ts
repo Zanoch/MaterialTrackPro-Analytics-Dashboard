@@ -74,6 +74,20 @@ export function useOrderSchedule(scheduleDate?: string) {
   });
 }
 
+// Hook to fetch schedule with real-time analytics (paginated)
+export function useOrderScheduleAnalytics(filters?: {
+  schedule_date?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: ['order-schedule-analytics', filters],
+    queryFn: () => orderService.getOrderScheduleAnalytics(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes - more frequent refresh for analytics
+    refetchInterval: 2 * 60 * 1000, // Auto-refresh every 2 minutes
+  });
+}
+
 // Utility function to get status color
 export function getOrderStatusColor(status: string): string {
   switch (status) {
