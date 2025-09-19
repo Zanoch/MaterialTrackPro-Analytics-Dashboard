@@ -11,6 +11,7 @@ import { FlavorsheetOperations } from './pages/FlavorsheetOperations';
 import { HerblineOperations } from './pages/HerblineOperations';
 import { BlendbalanceOperations } from './pages/BlendbalanceOperations';
 import { OrderStatusDashboard } from './pages/OrderStatusDashboard';
+import { ShipmentLog } from './pages/ShipmentLog';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
               <Route path="blendbalance" element={<BlendbalanceOperations />} />
               <Route path="inventory" element={<TealineInventory />} />
               <Route path="order-status" element={<OrderStatusDashboard />} />
+              <Route path="shipment-log" element={<ShipmentLog />} />
               <Route path="unauthorized" element={<Unauthorized />} />
             </Route>
           </Routes>

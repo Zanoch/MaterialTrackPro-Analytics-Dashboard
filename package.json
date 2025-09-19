@@ -27,6 +27,7 @@
     "recharts": "^3.0.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.17",
+    "uqr": "^0.1.2",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

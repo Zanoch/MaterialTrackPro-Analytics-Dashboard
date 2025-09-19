@@ -47,6 +47,9 @@ export const API_ENDPOINTS = {
     SCHEDULE_ANALYTICS: '/order/schedule/analytics',
     SHIPMENT: '/order/shipment',
   },
+
+  // Shipment Log endpoint (unified)
+  SHIPMENT_LOG: '/order/shipment/log',
   
   // Common endpoints
   LOCATION: '/central/location',
