@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Leaf, Package, Warehouse, Sparkles, Flower2, Scale, Truck, FileText } from 'lucide-react';
+import { Leaf, Package, Warehouse, Sparkles, Flower2, Scale, Truck, FileText, UserCheck } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAppStore } from '../../store';
 
@@ -12,6 +12,7 @@ const menuItems = [
   { path: '/herbline', label: 'Herbline', icon: Flower2 },
   { path: '/order-status', label: 'Order Status', icon: Truck },
   { path: '/shipment-log', label: 'Shipment Log', icon: FileText },
+  { path: '/trader-requests', label: 'Trader Requests', icon: UserCheck },
 ];
 
 export function Sidebar() {

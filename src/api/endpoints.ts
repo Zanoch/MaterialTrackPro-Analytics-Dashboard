@@ -50,7 +50,13 @@ export const API_ENDPOINTS = {
 
   // Shipment Log endpoint (unified)
   SHIPMENT_LOG: '/order/shipment/log',
-  
+
+  // Trader Request endpoints
+  TRADER_REQUESTS: {
+    BLENDSHEET: '/central/analytics/trader-requests/blendsheet',
+    FLAVORSHEET: '/central/analytics/trader-requests/flavorsheet',
+  },
+
   // Common endpoints
   LOCATION: '/central/location',
   SCAN: '/central/scan',

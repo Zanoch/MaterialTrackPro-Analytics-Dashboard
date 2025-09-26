@@ -232,9 +232,7 @@ export function BlendsheetOperations() {
     if (weight === undefined || weight === null || isNaN(weight)) {
       return "0.00 kg";
     }
-    // Convert from grams to kg if weight is greater than 1000
-    const weightInKg = weight > 1000 ? weight / 1000 : weight;
-    return `${weightInKg.toFixed(2)} kg`;
+    return `${weight.toFixed(2)} kg`;
   };
 
   const formatPercentage = (value: number | undefined | null) => {

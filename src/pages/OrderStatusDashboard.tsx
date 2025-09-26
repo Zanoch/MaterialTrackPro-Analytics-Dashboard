@@ -157,8 +157,8 @@ export function OrderStatusDashboard() {
               </div>
             </div>
 
-            {/* Filter controls - Right Side (only show for material-requests) */}
-            {viewMode === 'material-requests' && (
+            {/* Filter controls - Right Side (temporarily disabled) */}
+            {false && viewMode === 'material-requests' && (
               <div className="flex items-center space-x-4">
                 <Select
                   value={filters.date_from || ''}
@@ -173,7 +173,7 @@ export function OrderStatusDashboard() {
                 />
 
                 <Select
-                  value={Array.isArray(filters.status) ? filters.status[0] || '' : filters.status || ''}
+                  value={filters.status?.[0] || ''}
                   onValueChange={(value) => handleFilterChange('status', value ? [value] : [])}
                   placeholder="All Status"
                   options={[

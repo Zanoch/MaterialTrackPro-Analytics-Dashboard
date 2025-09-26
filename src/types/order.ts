@@ -124,8 +124,8 @@ export interface ShipmentWithEvents {
 
 // Shipment event details
 export interface ShipmentEvent {
-  status: 'APPROVAL_REQUESTED' | 'APPROVAL_ALLOWED' | 'ORDER_REQUESTED' | 
-         'SHIPMENT_ACCEPTED' | 'SHIPMENT_DISPATCHED' | 'ORDER_NOT_READY' | 
+  status: 'APPROVAL_REQUESTED' | 'APPROVAL_ALLOWED' | 'APPROVAL_BLOCKED' | 'ORDER_REQUESTED' |
+         'ORDER_READY' | 'ORDER_NOT_READY' | 'SHIPMENT_ACCEPTED' | 'SHIPMENT_DISPATCHED' |
          'RECEIVED';
   timestamp: number;
   shipment_vehicle?: string;

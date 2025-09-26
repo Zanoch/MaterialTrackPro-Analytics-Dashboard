@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Package, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Truck, CheckCircle, AlertCircle, FileText, XCircle, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { Badge } from '../ui/Badge';
 import { Loading } from '../ui/Loading';
 import { Pagination } from '../ui/Pagination';
-import type { OrderRequest, ShipmentWithEvents } from '../../types/order';
+import type { OrderRequest } from '../../types/order';
 
 interface MaterialRequestsTableProps {
   orderRequests: OrderRequest[];
@@ -30,14 +30,35 @@ export function MaterialRequestsTable({
     );
   }
 
-  // Flatten the data for table display
-  const tableData = orderRequests.flatMap(request => 
-    request.shipments.map(shipment => ({
+  // Process the data to show one row per order request with consolidated shipment data
+  const tableData = orderRequests.map(request => {
+    // Calculate total shipment quantity across all shipments
+    const totalShipmentQty = request.shipments.reduce((sum, shipment) => sum + shipment.quantity, 0);
+
+    // Get the latest status from all events across all shipments (backend provides in desc order)
+    const allEvents = request.shipments.flatMap(shipment => shipment.events);
+    const latestEvent = allEvents.sort((a, b) => b.timestamp - a.timestamp)[0];
+    const mostRecentStatus = latestEvent?.status || request.shipments[0]?.current_status || 'ORDER_REQUESTED';
+
+    // Get the latest event timestamp for sorting
+    const latestTimestamp = Math.max(
+      ...request.shipments.flatMap(shipment =>
+        shipment.events.map(event => event.timestamp)
+      )
+    );
+
+    return {
       request,
-      shipment,
-      key: `${request.request_code}-${shipment.shipment_code}`
-    }))
-  );
+      totalShipmentQty,
+      mostRecentStatus,
+      latestTimestamp,
+      key: request.request_code
+    };
+  }).sort((a, b) => {
+    const aCode = parseInt(String(a.request.request_code)) || 0;
+    const bCode = parseInt(String(b.request.request_code)) || 0;
+    return bCode - aCode; // Sort by request code numerically descending
+  });
   
   console.log('Material Requests Table Data:', tableData);
   console.log('Order Requests:', orderRequests);
@@ -65,118 +86,214 @@ export function MaterialRequestsTable({
   };
 
   const getStatusIcon = (status?: string) => {
-    switch (status) {
-      case 'APPROVAL_REQUESTED':
-      case 'ORDER_REQUESTED':
-        return <Clock className="h-4 w-4 text-amber-500" />;
-      case 'SHIPMENT_ACCEPTED':
-        return <Package className="h-4 w-4 text-blue-500" />;
-      case 'SHIPMENT_DISPATCHED':
-        return <Truck className="h-4 w-4 text-orange-500" />;
-      case 'RECEIVED':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-gray-400" />;
+    if (!status) return <AlertCircle className="h-4 w-4 text-gray-400" />;
+
+    // APPROVAL_ statuses (except APPROVAL_BLOCKED)
+    if (status.startsWith('APPROVAL_')) {
+      if (status === 'APPROVAL_BLOCKED') {
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      }
+      return <Shield className="h-4 w-4 text-blue-500" />;
     }
+
+    // ORDER_ statuses (except ORDER_NOT_READY for single shipment)
+    if (status.startsWith('ORDER_')) {
+      if (status === 'ORDER_NOT_READY') {
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      }
+      return <FileText className="h-4 w-4 text-purple-500" />;
+    }
+
+    // SHIPMENT_ statuses (except SHIPMENT_ACCEPTED)
+    if (status.startsWith('SHIPMENT_')) {
+      if (status === 'SHIPMENT_ACCEPTED') {
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      }
+      return <Truck className="h-4 w-4 text-orange-500" />;
+    }
+
+    // Default for any other status
+    return <AlertCircle className="h-4 w-4 text-gray-400" />;
   };
 
   const getStatusColor = (status?: string): 'default' | 'success' | 'warning' | 'error' | 'info' => {
-    switch (status) {
-      case 'APPROVAL_REQUESTED':
-      case 'ORDER_REQUESTED':
-        return 'warning';
-      case 'SHIPMENT_ACCEPTED':
-        return 'info';
-      case 'SHIPMENT_DISPATCHED':
-        return 'warning';
-      case 'RECEIVED':
-        return 'success';
-      default:
-        return 'default';
+    if (!status) return 'default';
+
+    // Danger statuses
+    if (status === 'APPROVAL_BLOCKED' || status === 'ORDER_NOT_READY') {
+      return 'error';
     }
+
+    // Success status
+    if (status === 'SHIPMENT_ACCEPTED') {
+      return 'success';
+    }
+
+    // APPROVAL_ statuses (except blocked)
+    if (status.startsWith('APPROVAL_')) {
+      return 'info';
+    }
+
+    // ORDER_ statuses (except not ready)
+    if (status.startsWith('ORDER_')) {
+      return 'warning';
+    }
+
+    // SHIPMENT_ statuses (except accepted)
+    if (status.startsWith('SHIPMENT_')) {
+      return 'warning';
+    }
+
+    return 'default';
   };
 
   const formatStatus = (status?: string): string => {
     if (!status) return 'Unknown';
+    // Convert snake_case to Title Case
     return status.replace(/_/g, ' ').toLowerCase()
       .split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   };
 
-  // Helper function to render timeline steps
-  const renderTimelineStep = (
-    stepStatus: string, 
-    stepLabel: string, 
-    shipment: ShipmentWithEvents,
-    request: OrderRequest
-  ) => {
-    const event = shipment.events.find(e => e.status === stepStatus);
-    const currentStatus = shipment.current_status || '';
-    
-    // Determine if this step is active (current)
-    const isActive = currentStatus === stepStatus;
-    
-    // Determine if this step is in the past (completed)
-    const statusOrder = ['ORDER_REQUESTED', 'APPROVAL_REQUESTED', 'SHIPMENT_ACCEPTED', 'SHIPMENT_DISPATCHED', 'RECEIVED'];
-    const currentIndex = statusOrder.indexOf(currentStatus);
-    const stepIndex = statusOrder.indexOf(stepStatus);
-    const isPast = currentIndex >= 0 && stepIndex >= 0 && stepIndex <= currentIndex;
+  // Helper function to render request timeline with dynamic status flow
+  const renderRequestTimeline = (request: OrderRequest) => {
+    // Get all unique events sorted by timestamp (chronological order)
+    const allEvents = request.shipments.flatMap(shipment =>
+      shipment.events.map(event => ({
+        ...event,
+        shipment_code: shipment.shipment_code,
+        quantity: shipment.quantity
+      }))
+    ).sort((a, b) => a.timestamp - b.timestamp);
+
+    // Get unique statuses in the order they occurred
+    const uniqueStatuses = [...new Set(allEvents.map(event => event.status))];
+
+    // Create initial request entry if not present in events
+    const hasOrderRequested = uniqueStatuses.includes('ORDER_REQUESTED');
+    if (!hasOrderRequested) {
+      uniqueStatuses.unshift('ORDER_REQUESTED');
+    }
 
     return (
-      <div className="relative flex items-start gap-3">
-        {/* Status indicator */}
-        <div className={`
-          relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2
-          ${isActive ? 'border-tea-600 bg-tea-600' : 
-            isPast ? 'border-green-500 bg-green-500' : 
-            'border-gray-300 bg-white'}
-        `}>
-          {isPast ? (
-            <CheckCircle className="h-5 w-5 text-white" />
-          ) : isActive ? (
-            getStatusIcon(stepStatus)
-          ) : (
-            <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-          )}
+      <div className="relative">
+        {/* Timeline line - positioned to align with dot centers (20px from left = 5 * 4px) */}
+        <div className="absolute left-4 top-8 bottom-8 w-px bg-gray-300"></div>
+
+        <div className="space-y-8">
+          {uniqueStatuses.map((status, index) => {
+            const statusEvents = allEvents.filter(event => event.status === status);
+
+            // Handle initial ORDER_REQUESTED status
+            if (status === 'ORDER_REQUESTED' && !hasOrderRequested) {
+              return (
+                <div key={status} className="relative flex items-start gap-4">
+                  {/* Timeline dot with icon */}
+                  <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white border-2 border-gray-400 shadow-sm">
+                    {getStatusIcon(status)}
+                  </div>
+                  <div className="flex-1 ml-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-base font-medium text-gray-900 flex items-center gap-2">
+                        {formatStatus(status)}
+                      </h5>
+                    </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">Request Code:</span>
+                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-mono">{request.request_code}</span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">Total Requirement:</span>
+                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-semibold">{request.requirement.toLocaleString()} kg</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+
+            return (
+              <div key={`${status}-${index}`} className="relative flex items-start gap-4">
+                {/* Timeline dot with icon */}
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white border-2 border-gray-400 shadow-sm">
+                  {getStatusIcon(status)}
+                </div>
+                <div className="flex-1 ml-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="text-base font-medium text-gray-900 flex items-center gap-2">
+                      {formatStatus(status)}
+                    </h5>
+                  </div>
+
+                  {/* Show shipments for this status */}
+                  {statusEvents.length > 0 && (
+                    <div className="space-y-3">
+                      {statusEvents.map((event, eventIndex) => (
+                        <div key={`${event.shipment_code}-${eventIndex}`} className="py-2 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-800 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+                              {request.shipments.length > 1 ? `Shipment #${event.shipment_code}` : 'Shipment'}
+                              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
+                                {event.quantity.toLocaleString()} kg
+                              </span>
+                            </span>
+                            <time className="text-xs text-gray-500">
+                              {new Date(event.timestamp).toLocaleString()}
+                            </time>
+                          </div>
+
+                          {/* Show vehicle info for dispatched shipments */}
+                          {status === 'SHIPMENT_DISPATCHED' && event.shipment_vehicle && (
+                            <div className="mt-2 flex items-center gap-2 text-gray-600">
+                              <Truck className="h-4 w-4" />
+                              <span className="text-sm">
+                                Vehicle: <span className="font-medium">{event.shipment_vehicle}</span>
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Show remarks if available */}
+                          {(event.remarks || event.shipment_remarks || event.order_remarks) && (
+                            <div className="mt-2">
+                              <p className="text-sm text-gray-600 italic">
+                                "{event.remarks || event.shipment_remarks || event.order_remarks}"
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show initial request details only for ORDER_REQUESTED */}
+                  {status === 'ORDER_REQUESTED' && statusEvents.length > 0 && (
+                    <div className="mt-3 text-sm space-y-1 text-gray-600 pt-2 border-t border-gray-100">
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">Request Code:</span>
+                        <span className="px-2 py-1 rounded text-xs font-mono bg-gray-100 text-gray-800">{request.request_code}</span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">Total Requirement:</span>
+                        <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800">{request.requirement.toLocaleString()} kg</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-        
-        {/* Content */}
-        <div className="flex-1 pb-6">
-          <div className="flex items-center justify-between">
-            <h5 className={`text-sm font-medium ${isPast ? 'text-gray-900' : 'text-gray-500'}`}>
-              {stepLabel}
-            </h5>
-            {event && (
-              <time className="text-xs text-gray-500">
-                {new Date(event.timestamp).toLocaleString()}
-              </time>
-            )}
+
+        {/* Timeline completion indicator */}
+        {uniqueStatuses.length > 0 && (
+          <div className="absolute left-1 bottom-2 w-6 h-6 bg-gray-200 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
           </div>
-          
-          {/* Show vehicle number for transit status */}
-          {event && stepStatus === 'SHIPMENT_DISPATCHED' && event.shipment_vehicle && (
-            <div className="mt-1 flex items-center gap-2">
-              <Truck className="h-3 w-3 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                Vehicle: <span className="font-medium">{event.shipment_vehicle}</span>
-              </span>
-            </div>
-          )}
-          
-          {/* Show remarks if available */}
-          {event && event.remarks && (
-            <p className="mt-1 text-sm text-gray-600">{event.remarks}</p>
-          )}
-          
-          {/* Show request details for the first step */}
-          {stepStatus === 'ORDER_REQUESTED' && (
-            <div className="mt-1 text-sm text-gray-600">
-              <p>Request Code: {request.request_code}</p>
-              <p>Quantity: {shipment.quantity.toLocaleString()} kg</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   };
@@ -207,7 +324,7 @@ export function MaterialRequestsTable({
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedData.map(({ request, shipment, key }) => (
+                paginatedData.map(({ request, totalShipmentQty, mostRecentStatus, key }) => (
                   <React.Fragment key={key}>
                     <TableRow className="hover:bg-gray-50">
                       <TableCell>
@@ -231,13 +348,16 @@ export function MaterialRequestsTable({
                       <TableCell>{request.order_code}</TableCell>
                       <TableCell>{request.product_name}</TableCell>
                       <TableCell className="text-right font-medium">
-                        {shipment.quantity.toLocaleString()}
+                        {totalShipmentQty.toLocaleString()}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Total Quantity
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {getStatusIcon(shipment.current_status)}
-                          <Badge variant={getStatusColor(shipment.current_status)}>
-                            {formatStatus(shipment.current_status)}
+                          {getStatusIcon(mostRecentStatus)}
+                          <Badge variant={getStatusColor(mostRecentStatus)}>
+                            {formatStatus(mostRecentStatus)}
                           </Badge>
                         </div>
                       </TableCell>
@@ -247,24 +367,12 @@ export function MaterialRequestsTable({
                         <TableCell colSpan={6} className="bg-gray-50 p-0">
                           <div className="p-6">
                             <h4 className="text-sm font-semibold text-gray-900 mb-4">
-                              Order Timeline
+                              Order Request Timeline
                             </h4>
-                            <div className="relative">
-                              {/* Timeline line */}
-                              <div className="absolute left-2 top-6 bottom-0 w-0.5 bg-gray-200"></div>
-                              
-                              <div className="space-y-6">
-                                {/* Show all timeline steps */}
-                                {renderTimelineStep('ORDER_REQUESTED', 'Order Requested', shipment, request)}
-                                {renderTimelineStep('APPROVAL_REQUESTED', 'Approval Requested', shipment, request)}
-                                {renderTimelineStep('SHIPMENT_ACCEPTED', 'Shipment Approved', shipment, request)}
-                                {renderTimelineStep('SHIPMENT_DISPATCHED', 'In Transit', shipment, request)}
-                                {renderTimelineStep('RECEIVED', 'Received', shipment, request)}
-                              </div>
+                            <div className="space-y-6">
+                              {/* Render timeline for the entire request */}
+                              {renderRequestTimeline(request)}
                             </div>
-                            {shipment.events.length === 0 && (
-                              <p className="text-sm text-gray-500 mt-4">No events recorded</p>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>

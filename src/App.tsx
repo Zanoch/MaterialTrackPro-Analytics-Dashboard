@@ -12,6 +12,7 @@ import { HerblineOperations } from './pages/HerblineOperations';
 import { BlendbalanceOperations } from './pages/BlendbalanceOperations';
 import { OrderStatusDashboard } from './pages/OrderStatusDashboard';
 import { ShipmentLog } from './pages/ShipmentLog';
+import { TraderRequests } from './pages/TraderRequests';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
               <Route path="inventory" element={<TealineInventory />} />
               <Route path="order-status" element={<OrderStatusDashboard />} />
               <Route path="shipment-log" element={<ShipmentLog />} />
+              <Route path="trader-requests" element={<TraderRequests />} />
               <Route path="unauthorized" element={<Unauthorized />} />
             </Route>
           </Routes>
