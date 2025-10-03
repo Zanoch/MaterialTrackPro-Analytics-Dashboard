@@ -62,81 +62,6 @@ export function BlendsheetOperations() {
     console.log("Browser timezone offset:", timezoneOffset);
   }, [timezoneOffset]);
 
-  // Mock data with new structure
-  const mockBlendsheetData: BlendsheetData[] = [
-    {
-      blendsheet_no: "BS001",
-      blend_code: "GRADE-A",
-      remarks: "High priority blend for premium export",
-      planned_weight: 2500,
-      no_of_batches: 3,
-      batches: [
-        {
-          item_code: "BS001-B01",
-          created_ts: new Date("2024-01-15T08:00:00"),
-          blend_in_weight: 850,
-          blend_in_time: "08:00 - 10:30",
-          blend_out_weight: 845,
-          blend_out_time: "10:30 - 12:00",
-          completed: true,
-        },
-        {
-          item_code: "BS001-B02",
-          created_ts: new Date("2024-01-15T13:00:00"),
-          blend_in_weight: 820,
-          blend_in_time: "13:00 - 15:15",
-          blend_out_weight: 815,
-          blend_out_time: "15:15 - 16:45",
-          completed: true,
-        },
-        {
-          item_code: "BS001-B03",
-          created_ts: new Date("2024-01-16T09:00:00"),
-          blend_in_weight: 830,
-          blend_in_time: "09:00 - ongoing",
-          blend_out_weight: 0,
-          blend_out_time: "",
-          completed: false,
-        },
-      ],
-    },
-    {
-      blendsheet_no: "BS002",
-      blend_code: "GRADE-B",
-      remarks: "Regular production batch for domestic market",
-      planned_weight: 1800,
-      no_of_batches: 2,
-      batches: [
-        {
-          item_code: "BS002-B01",
-          created_ts: new Date("2024-01-14T14:00:00"),
-          blend_in_weight: 900,
-          blend_in_time: "14:00 - 16:30",
-          blend_out_weight: 895,
-          blend_out_time: "16:30 - 18:00",
-          completed: true,
-        },
-        {
-          item_code: "BS002-B02",
-          created_ts: new Date("2024-01-15T10:00:00"),
-          blend_in_weight: 900,
-          blend_in_time: "10:00 - 12:45",
-          blend_out_weight: 890,
-          blend_out_time: "12:45 - 14:15",
-          completed: true,
-        },
-      ],
-    },
-    {
-      blendsheet_no: "BS003",
-      blend_code: "GRADE-C",
-      remarks: "Standard quality blend",
-      planned_weight: 3200,
-      no_of_batches: 4,
-      batches: [],
-    },
-  ];
-
   // Fetch blendsheet operations data with pagination and KPI metrics
   const {
     data: operationsResponse,
@@ -165,8 +90,8 @@ export function BlendsheetOperations() {
   const isInitialLoading = isLoading && !hasExistingData;
   const isInteractionLoading = isUserInteracting && isFetching && hasExistingData;
 
-  // Use API data, fallback to mock data for development
-  const blendsheetData = operationsResponse?.data || mockBlendsheetData;
+  // Use API data or empty array as fallback
+  const blendsheetData = operationsResponse?.data || [];
   const metaData = operationsResponse?.meta || {
     total_items: 0,
     current_page_items: 0,
@@ -286,7 +211,7 @@ export function BlendsheetOperations() {
     // Completed if all batches are created AND all are marked as completed
     if (
       item.batches.length === item.no_of_batches &&
-      item.batches.every((batch) => batch.completed)
+      item.batches.every((batch) => batch.status === 'COMPLETED')
     ) {
       return "COMPLETED";
     }
@@ -297,7 +222,7 @@ export function BlendsheetOperations() {
 
   // Calculate efficiency for a single batch (only if completed)
   const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
-    if (!batch.completed || batch.blend_in_weight === 0) {
+    if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0) {
       return null;
     }
     return (batch.blend_out_weight / batch.blend_in_weight) * 100;
@@ -305,7 +230,7 @@ export function BlendsheetOperations() {
 
   // Calculate overall blendsheet efficiency (average of completed batch efficiencies)
   const calculateBlendsheetEfficiency = (item: BlendsheetData): number | null => {
-    const completedBatches = item.batches.filter((batch) => batch.completed);
+    const completedBatches = item.batches.filter((batch) => batch.status === 'COMPLETED');
 
     if (completedBatches.length === 0) {
       return null;
@@ -684,7 +609,7 @@ export function BlendsheetOperations() {
                                             {formatWeight(batch.blend_in_weight)}
                                           </div>
                                           <div className="text-green-600 font-medium">
-                                            {batch.completed
+                                            {batch.status === 'COMPLETED'
                                               ? formatWeight(batch.blend_out_weight)
                                               : "-"}
                                           </div>
@@ -695,12 +620,12 @@ export function BlendsheetOperations() {
                                             {batch.blend_out_time || "-"}
                                           </div>
                                           <div>
-                                            {!batch.completed && (
+                                            {batch.status !== 'COMPLETED' && (
                                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
                                                 In Progress
                                               </span>
                                             )}
-                                            {batch.completed && (
+                                            {batch.status === 'COMPLETED' && (
                                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
                                                 Completed
                                                 {batchEfficiency

@@ -18,7 +18,7 @@ export interface BlendsheetBatchData {
   blend_in_time: string;
   blend_out_weight: number;
   blend_out_time: string;
-  completed: boolean;
+  status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
 }
 
 // Extended blendsheet with calculated fields
