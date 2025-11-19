@@ -11,11 +11,3 @@ export const useShipmentLog = (filters?: ShipmentFilters) => {
     placeholderData: (previousData) => previousData, // Keep previous data during searches
   });
 };
-
-export const useShipmentFilterOptions = () => {
-  return useQuery({
-    queryKey: ['shipment-log', 'filter-options'],
-    queryFn: () => shipmentService.getFilterOptions(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  });
-};

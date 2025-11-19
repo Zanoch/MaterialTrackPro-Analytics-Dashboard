@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '../api/services/order.service';
-import type { 
-  OrderDashboardFilters, 
-  OrderPlanDetails,
+import type {
+  OrderDashboardFilters,
 } from '../types/order';
 
 // Hook to fetch complete dashboard data
@@ -10,25 +9,6 @@ export function useOrderDashboard(filters?: OrderDashboardFilters) {
   return useQuery({
     queryKey: ['order-dashboard', filters],
     queryFn: () => orderService.getOrderDashboardData(filters),
-    refetchInterval: 30000, // Refresh every 30 seconds
-    staleTime: 25000,
-  });
-}
-
-// Hook to fetch order plans
-export function useOrderPlans(currentDate?: string) {
-  return useQuery({
-    queryKey: ['order-plans', currentDate],
-    queryFn: () => orderService.getOrderPlans(currentDate),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
-
-// Hook to fetch order requests
-export function useOrderRequests(filters?: OrderDashboardFilters) {
-  return useQuery({
-    queryKey: ['order-requests', filters],
-    queryFn: () => orderService.getOrderRequests(filters),
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 25000,
   });
@@ -52,25 +32,6 @@ export function useCreateShipmentEvent() {
       queryClient.invalidateQueries({ queryKey: ['order-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['order-requests'] });
     },
-  });
-}
-
-// Hook to get filter options
-export function useOrderFilterOptions() {
-  return useQuery({
-    queryKey: ['order-filter-options'],
-    queryFn: () => orderService.getFilterOptions(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-}
-
-// Hook to fetch schedule
-export function useOrderSchedule(scheduleDate?: string) {
-  return useQuery({
-    queryKey: ['order-schedule', scheduleDate],
-    queryFn: () => orderService.getOrderSchedule({ schedule_date: scheduleDate }),
-    enabled: !!scheduleDate,
-    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -150,18 +111,4 @@ export function formatOrderStatus(status: string): string {
     default:
       return status;
   }
-}
-
-// Utility function to calculate progress percentage
-export function calculateOrderProgress(orderPlan: OrderPlanDetails): number {
-  if (!orderPlan.requirement || orderPlan.requirement === 0) return 0;
-  
-  let shipped = 0;
-  orderPlan.requests.forEach(request => {
-    if (request.status === 'SHIPMENT_DISPATCHED' || request.status === 'RECEIVED') {
-      shipped += request.quantity;
-    }
-  });
-  
-  return Math.min(100, (shipped / orderPlan.requirement) * 100);
 }

@@ -31,7 +31,6 @@ import {
   useBlendbalanceSearch,
   useBlendbalances,
   useBlendbalanceFilterOptions,
-  useQualityCheckQueue,
   useBlendbalanceStatistics,
 } from "../hooks/useBlendbalance";
 import type {
@@ -75,7 +74,6 @@ export function BlendbalanceOperations() {
   const { data: filterOptions } = useBlendbalanceFilterOptions() as {
     data: { blendCodes: string[]; transferIds: string[] } | undefined;
   };
-  const { data: qualityQueue } = useQualityCheckQueue() as { data: BlendbalanceItem[] | undefined };
 
   // Computed values
   const blendbalances = useMemo(() => {
@@ -232,7 +230,7 @@ export function BlendbalanceOperations() {
 
         <KpiCard
           title="Quality Checks"
-          value={dashboardData?.pending_quality_checks || qualityQueue?.length || 0}
+          value={dashboardData?.pending_quality_checks || 0}
           icon={AlertTriangle}
           iconColor="text-amber-600"
           iconBgColor="bg-amber-100"

@@ -12,14 +12,6 @@ export const usePendingTealines = (filters?: TealineFilters) => {
   });
 };
 
-export const useTealineFilterOptions = () => {
-  return useQuery({
-    queryKey: ['tealines', 'filter-options'],
-    queryFn: () => tealineService.getFilterOptions(),
-    staleTime: 1000 * 60 * 10, // 10 minutes
-  });
-};
-
 // Hook for the new inventory complete endpoint with meta data
 export const useTealineInventoryComplete = (filters?: TealineFilters) => {
   return useQuery({

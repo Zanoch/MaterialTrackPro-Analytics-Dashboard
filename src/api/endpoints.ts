@@ -1,66 +1,44 @@
 export const API_ENDPOINTS = {
-  // Tealine endpoints
+  // Tealine endpoints (migrated to grandpass-handler)
   TEALINE: {
-    PENDING_OPTIMIZED: '/central/tealine/pending-with-calculations',
-    ALL: '/central/admin/tealine',
-    INVENTORY_OPTIMIZED: '/central/admin/tealine/inventory-complete',
+    PENDING_OPTIMIZED: '/grandpass/tealine/pending-with-calculations',
+    INVENTORY_OPTIMIZED: '/grandpass/admin/tealine/inventory-complete',
   },
-  
-  // Blendsheet endpoints
+
+  // Blendsheet endpoints (migrated to grandpass-handler)
   BLENDSHEET: {
-    ALL: '/central/blendsheet',
-    ADMIN: '/central/admin/blendsheet',
-    PAGINATED: '/central/admin/blendsheet/paginated',
-    OPERATIONS_DATA: '/central/admin/blendsheet/operations-data',
-    BATCH: '/central/blendsheet/batch',
+    OPERATIONS_DATA: '/grandpass/admin/blendsheet/operations-data',
   },
-  
-  // Flavorsheet endpoints
+
+  // Flavorsheet endpoints (migrated to grandpass-handler)
   FLAVORSHEET: {
-    OPERATIONS_DATA: '/central/admin/flavorsheet/operations-data',
+    OPERATIONS_DATA: '/grandpass/admin/flavorsheet/operations-data',
   },
-  
-  // Herbline endpoints
+
+  // Herbline endpoints (migrated to grandpass-handler)
   HERBLINE: {
-    ALL: '/central/herbline',
-    ADMIN: '/central/admin/herbline',
-    ADMIN_SEARCH: '/central/admin/herbline/search',
-    USER_SEARCH: '/central/herbline/search',
-    INVENTORY_COMPLETE: '/central/admin/herbline/inventory-complete',
-    DASHBOARD_SUMMARY: '/central/admin/herbline/dashboard-summary',
-    RECORD: '/central/herbline/record',
-    ALLOCATIONS: '/central/herbline/allocations',
+    ADMIN: '/grandpass/admin/herbline',
+    DASHBOARD_SUMMARY: '/grandpass/admin/herbline/dashboard-summary',
   },
-  
-  // Blendbalance endpoints
+
+  // Blendbalance endpoints (migrated to grandpass-handler)
   BLENDBALANCE: {
-    ALL: '/central/blendbalance',
-    ADMIN: '/central/admin/blendbalance',
-    RECORD: '/central/blendbalance/record',
+    ADMIN: '/grandpass/admin/blendbalance',
   },
-  
-  // Order endpoints
+
+  // Order endpoints (migrated to grandpass-handler)
   ORDER: {
-    LIST: '/order',
-    PLAN: '/order/plan',
-    SCHEDULE: '/order/schedule',
-    SCHEDULE_ANALYTICS: '/order/schedule/analytics',
-    SHIPMENT: '/order/shipment',
+    LIST: '/grandpass/order/plan',
+    PLAN: '/grandpass/order/plan',
+    SCHEDULE_ANALYTICS: '/grandpass/order/schedule/analytics',
   },
 
-  // Shipment Log endpoint (unified)
-  SHIPMENT_LOG: '/order/shipment/log',
+  // Shipment Log endpoint (migrated to grandpass-handler)
+  SHIPMENT_LOG: '/grandpass/order/shipment/log',
 
-  // Trader Request endpoints
+  // Trader Request endpoints (migrated to grandpass-handler)
   TRADER_REQUESTS: {
-    BLENDSHEET: '/central/analytics/trader-requests/blendsheet',
-    FLAVORSHEET: '/central/analytics/trader-requests/flavorsheet',
+    BLENDSHEET: '/grandpass/analytics/trader-requests/blendsheet',
+    FLAVORSHEET: '/grandpass/analytics/trader-requests/flavorsheet',
   },
-
-  // Common endpoints
-  LOCATION: '/central/location',
-  SCAN: '/central/scan',
-  
-  // Proxy to Central Handler
-  CENTRAL: '/central',
 } as const;

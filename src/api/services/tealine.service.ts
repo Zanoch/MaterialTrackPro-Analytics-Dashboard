@@ -1,7 +1,7 @@
 import { amplifyApiClient } from '../amplifyClient';
 import { API_ENDPOINTS } from '../endpoints';
-import { 
-  type PendingTealineItem, 
+import {
+  type PendingTealineItem,
   type TealineFilters,
   type InventoryCompleteResponse
 } from '../../types/tealine';
@@ -17,12 +17,12 @@ export const tealineService = {
         API_ENDPOINTS.TEALINE.PENDING_OPTIMIZED,
         filters
       );
-      
+
       // Return the full response object (with success, data, and meta)
       if (data?.success) {
         return data;
       }
-      
+
       // Fallback for old response format (array of items)
       if (Array.isArray(data)) {
         return {
@@ -45,7 +45,7 @@ export const tealineService = {
           },
         };
       }
-      
+
       console.warn('⚠️ Unexpected response structure, using mock data');
       return {
         success: false,
@@ -95,20 +95,20 @@ export const tealineService = {
     try {
       console.log('🚀 [INVENTORY-COMPLETE] Starting getInventoryComplete function');
       console.log('🔍 [INVENTORY-COMPLETE] Filters:', filters);
-      
-      
+
+
       const response = await amplifyApiClient.get(API_ENDPOINTS.TEALINE.INVENTORY_OPTIMIZED, filters);
-      
+
       console.log('📡 [INVENTORY-COMPLETE] Response received');
-      
+
       // Handle response structure - the response should already be the complete structure
       const data = response;
-      
+
       // Return the complete response structure including meta data
       if (data?.success) {
         return data as InventoryCompleteResponse;
       }
-      
+
       // Return empty structure if API response is not in expected format
       return {
         success: false,
@@ -149,27 +149,6 @@ export const tealineService = {
             has_previous: false
           }
         }
-      };
-    }
-  },
-
-  // Get filter options for dropdowns
-  getFilterOptions: async (): Promise<any> => {
-    try {
-      const response = await amplifyApiClient.get(`${API_ENDPOINTS.TEALINE.ALL}/filters`);
-      return response?.data || response || {
-        brokers: [],
-        gardens: [],
-        grades: [],
-        locations: []
-      };
-    } catch (error) {
-      console.error('Error fetching tealine filter options:', error);
-      return {
-        brokers: [],
-        gardens: [],
-        grades: [],
-        locations: []
       };
     }
   },

@@ -37,14 +37,5 @@ export const shipmentService = {
     console.log('📊 [SHIPMENT-LOG-API] Total orders:', data.meta?.total_orders || 0);
 
     return data;
-  },
-
-  // Get filter options for dropdowns
-  getFilterOptions: async (): Promise<ShipmentFilterOptions> => {
-    // TODO: Implement real filter options API when needed
-    return {
-      vehicles: [],
-      products: []
-    };
   }
 };
