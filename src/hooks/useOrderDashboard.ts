@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { orderService } from '../api/services/order.service';
 import type {
   OrderDashboardFilters,
@@ -11,27 +11,6 @@ export function useOrderDashboard(filters?: OrderDashboardFilters) {
     queryFn: () => orderService.getOrderDashboardData(filters),
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 25000,
-  });
-}
-
-// Hook to create shipment event
-export function useCreateShipmentEvent() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (events: Array<{
-      request_code: string;
-      shipment_code: number;
-      status: string;
-      shipment_vehicle?: string;
-      shipment_remarks?: string;
-      order_remarks?: string;
-    }>) => orderService.createShipmentEvent(events),
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['order-dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['order-requests'] });
-    },
   });
 }
 

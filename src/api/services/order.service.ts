@@ -1,9 +1,6 @@
 import {
   type Order,
-  type OrderItem,
-  type Shipment,
   type OrderFilters,
-  type OrderStats,
   type OrderPlanDetails,
   type OrderRequest,
   type OrderDashboardData,
@@ -153,19 +150,6 @@ export const orderService = {
       console.error('Error fetching order requests:', error);
       return [];
     }
-  },
-
-  // Create shipment event
-  createShipmentEvent: async (events: Array<{
-    request_code: string;
-    shipment_code: number;
-    status: string;
-    shipment_vehicle?: string;
-    shipment_remarks?: string;
-    order_remarks?: string;
-  }>): Promise<any> => {
-    const response = await amplifyApiClient.post(`${API_ENDPOINTS.ORDER.SHIPMENT}/event`, events);
-    return response?.data || response;
   },
 
   // Get dashboard data

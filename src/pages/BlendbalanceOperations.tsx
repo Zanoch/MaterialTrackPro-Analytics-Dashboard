@@ -254,16 +254,6 @@ export function BlendbalanceOperations() {
               🔍 All Transfers
             </button>
             <button
-              onClick={() => handleContextChange("user")}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                searchContext === "user"
-                  ? "bg-tea-500 text-white"
-                  : "bg-white text-tea-600 hover:bg-tea-100"
-              }`}
-            >
-              📦 Available
-            </button>
-            <button
               onClick={() => handleContextChange("transfer")}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${
                 searchContext === "transfer"

@@ -1,8 +1,7 @@
 import { get } from 'aws-amplify/api';
 import {
   type DispatchedShipmentsResponse,
-  type ShipmentFilters,
-  type ShipmentFilterOptions
+  type ShipmentFilters
 } from '../../types/shipment';
 
 export const shipmentService = {

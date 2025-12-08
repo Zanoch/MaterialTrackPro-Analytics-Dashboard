@@ -1,5 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Leaf, Package, Warehouse, Sparkles, Flower2, Scale, Truck, FileText, UserCheck } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Leaf, Package, Warehouse, Sparkles, Flower2, Scale, Truck, FileText, UserCheck, ToggleLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAppStore } from '../../store';
 
@@ -17,20 +17,25 @@ const menuItems = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { sidebarCollapsed } = useAppStore();
+
+  const handleModeSwitch = () => {
+    navigate('/dev-test');
+  };
 
   return (
     <aside
       className={cn(
-        "sticky top-16 h-[calc(100vh-4rem)] border-r bg-gray-50 transition-all duration-300",
+        "sticky top-16 h-[calc(100vh-4rem)] border-r bg-gray-50 transition-all duration-300 flex flex-col",
         sidebarCollapsed ? "w-16" : "w-56"
       )}
     >
-      <nav className="space-y-1 p-2">
+      <nav className="space-y-1 p-2 flex-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           return (
             <Link
               key={item.path}
@@ -49,6 +54,22 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Dev Mode Switch - only in development */}
+      {import.meta.env.MODE === "development" && (
+        <div className="p-3 border-t">
+          <button
+            onClick={handleModeSwitch}
+            className={cn(
+              "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors",
+              sidebarCollapsed && "justify-center"
+            )}
+          >
+            <ToggleLeft className="h-5 w-5 text-gray-500" />
+            {!sidebarCollapsed && <span>Dev Mode</span>}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

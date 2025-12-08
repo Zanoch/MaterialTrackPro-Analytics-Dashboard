@@ -1,12 +1,9 @@
-import { useState } from 'react';
-import { Package, Clock, Edit, X, Check } from 'lucide-react';
+import { Package, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
 import type { OrderPlanDetails, OrderRequest, ShipmentWithEvents } from '../../types/order';
 import { ShipmentTimeline } from './ShipmentTracker';
-import { getOrderStatusColor, getOrderStatusIcon, formatOrderStatus, useCreateShipmentEvent } from '../../hooks/useOrderDashboard';
+import { getOrderStatusColor, getOrderStatusIcon, formatOrderStatus } from '../../hooks/useOrderDashboard';
 
 interface OrderDetailsPanelProps {
   selectedOrder?: {
@@ -19,8 +16,6 @@ interface OrderDetailsPanelProps {
 }
 
 export function OrderDetailsPanel({ selectedOrder, onClose }: OrderDetailsPanelProps) {
-  const [isEditing, setIsEditing] = useState(false);
-
   if (!selectedOrder) {
     return (
       <Card className="h-full">
@@ -61,11 +56,9 @@ export function OrderDetailsPanel({ selectedOrder, onClose }: OrderDetailsPanelP
         )}
 
         {type === 'request' && request && (
-          <OrderRequestDetails 
-            request={request} 
+          <OrderRequestDetails
+            request={request}
             selectedShipment={shipment}
-            isEditing={isEditing}
-            onEditToggle={() => setIsEditing(!isEditing)}
           />
         )}
       </CardContent>
@@ -180,38 +173,9 @@ function OrderPlanDetails({ plan }: OrderPlanDetailsProps) {
 interface OrderRequestDetailsProps {
   request: OrderRequest;
   selectedShipment?: ShipmentWithEvents;
-  isEditing?: boolean;
-  onEditToggle?: () => void;
 }
 
-function OrderRequestDetails({ request, selectedShipment, isEditing = false, onEditToggle }: OrderRequestDetailsProps) {
-  const [eventForm, setEventForm] = useState({
-    status: '',
-    vehicle: '',
-    remarks: ''
-  });
-
-  const createShipmentEvent = useCreateShipmentEvent();
-
-  const handleCreateEvent = async () => {
-    if (!selectedShipment || !eventForm.status) return;
-
-    try {
-      await createShipmentEvent.mutateAsync([{
-        request_code: request.request_code,
-        shipment_code: selectedShipment.shipment_code,
-        status: eventForm.status,
-        shipment_vehicle: eventForm.vehicle || undefined,
-        shipment_remarks: eventForm.remarks || undefined,
-      }]);
-
-      // Reset form
-      setEventForm({ status: '', vehicle: '', remarks: '' });
-      onEditToggle?.();
-    } catch (error) {
-      console.error('Failed to create shipment event:', error);
-    }
-  };
+function OrderRequestDetails({ request, selectedShipment }: OrderRequestDetailsProps) {
 
   return (
     <div className="space-y-6">
@@ -255,15 +219,6 @@ function OrderRequestDetails({ request, selectedShipment, isEditing = false, onE
           <h4 className="font-medium text-gray-900">
             Shipments ({request.shipments.length})
           </h4>
-          {selectedShipment && (
-            <button
-              onClick={onEditToggle}
-              className="text-tea-600 hover:text-tea-700 text-sm"
-            >
-              <Edit className="h-4 w-4 inline mr-1" />
-              Update Status
-            </button>
-          )}
         </div>
 
         {request.shipments.length === 0 ? (
@@ -306,79 +261,6 @@ function OrderRequestDetails({ request, selectedShipment, isEditing = false, onE
           </div>
         )}
       </div>
-
-      {/* Event Creation Form */}
-      {isEditing && selectedShipment && (
-        <div className="border border-tea-200 rounded-lg p-4 bg-tea-50">
-          <h4 className="font-medium text-gray-900 mb-3">Update Shipment Status</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
-              <Select
-                value={eventForm.status}
-                onValueChange={(value) => setEventForm(prev => ({ ...prev, status: value }))}
-                placeholder="Select status"
-                options={[
-                  { value: 'APPROVAL_ALLOWED', label: '✅ Approval Allowed' },
-                  { value: 'SHIPMENT_ACCEPTED', label: '📦 Shipment Accepted' },
-                  { value: 'SHIPMENT_DISPATCHED', label: '🚚 Shipment Dispatched' },
-                  { value: 'RECEIVED', label: '✔️ Received' },
-                  { value: 'ORDER_NOT_READY', label: '❌ Order Not Ready' },
-                ]}
-              />
-            </div>
-
-            {eventForm.status === 'SHIPMENT_DISPATCHED' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Vehicle</label>
-                <Input
-                  type="text"
-                  value={eventForm.vehicle}
-                  onChange={(e) => setEventForm(prev => ({ ...prev, vehicle: e.target.value }))}
-                  placeholder="Enter vehicle number"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Remarks</label>
-              <Input
-                type="text"
-                value={eventForm.remarks}
-                onChange={(e) => setEventForm(prev => ({ ...prev, remarks: e.target.value }))}
-                placeholder="Enter remarks (optional)"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleCreateEvent}
-                disabled={!eventForm.status || createShipmentEvent.isPending}
-                className="flex-1 bg-tea-600 text-white px-4 py-2 rounded-md hover:bg-tea-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {createShipmentEvent.isPending ? (
-                  <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Update Status
-                  </>
-                )}
-              </button>
-              <button
-                onClick={onEditToggle}
-                disabled={createShipmentEvent.isPending}
-                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

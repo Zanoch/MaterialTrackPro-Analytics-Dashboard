@@ -5,14 +5,10 @@ import {
   type BlendbalanceSearchFilters,
   type BlendbalanceSearchResponse,
   type BlendbalanceDashboardMetrics,
-  type CreateBlendbalanceRequest,
-  type UpdateBlendbalanceRequest,
   type SearchContext,
   type BlendbalanceFilterOptions,
   type BlendbalanceFilters,
   type CompletionStatus,
-  type BlendbalanceStatus,
-  type TransferType,
   TRANSFER_TYPES,
 } from '../../types/blendbalance';
 
@@ -27,7 +23,6 @@ export const blendbalanceService = {
   ): Promise<BlendbalanceSearchResponse> => {
     const endpoints = {
       admin: `${API_ENDPOINTS.BLENDBALANCE.ADMIN}/search`,
-      user: `${API_ENDPOINTS.BLENDBALANCE.ALL}/search`,
       transfer: `${API_ENDPOINTS.BLENDBALANCE.ADMIN}/transfers/search`,
       quality: `${API_ENDPOINTS.BLENDBALANCE.ADMIN}/quality/search`,
     };

@@ -1,3 +1,6 @@
+// Dev version of TealineInventory that uses mock data
+// This is a duplicate page for dev panel testing only
+
 import { useState, useEffect } from "react";
 import {
   RefreshCw,
@@ -25,7 +28,7 @@ import {
   TableRow,
 } from "../components/ui/Table";
 import { Pagination } from "../components/ui/Pagination";
-import { useTealineInventoryComplete } from "../hooks/useTealine";
+import { useDevTealineInventoryComplete } from "../hooks/useDevMockData";
 import {
   exportToCSV,
   exportToPDF,
@@ -35,9 +38,9 @@ import {
 } from "../utils/exportUtils";
 import type { TealineInventoryComplete } from "../types/tealine";
 
-export function TealineInventory() {
+export function DevTealineInventory() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchQuery, setSearchQuery] = useState(""); // For server-side search
+  const [searchQuery, setSearchQuery] = useState("");
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TealineInventoryComplete | null>(null);
   const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
@@ -45,35 +48,31 @@ export function TealineInventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  // Fetch inventory data with pagination and search
   const queryParams = {
     limit: itemsPerPage,
     offset: (currentPage - 1) * itemsPerPage,
     ...(searchQuery && { search: searchQuery }),
   };
 
+  // Use mock data hook directly
   const {
     data: inventoryResponse,
     isLoading,
     isFetching,
     error,
     refetch,
-  } = useTealineInventoryComplete(queryParams);
+  } = useDevTealineInventoryComplete(queryParams);
 
-  // Watch for fetch completion and clear user interaction state
   useEffect(() => {
     if (isUserInteracting && !isFetching) {
       setIsUserInteracting(false);
     }
   }, [isFetching, isUserInteracting]);
 
-  // Determine loading states based on existing data
-  // In React Query v5 with placeholderData, use isFetching for ongoing requests
   const hasExistingData = !!inventoryResponse;
   const isInitialLoading = isLoading && !hasExistingData;
   const isInteractionLoading = isUserInteracting && isFetching && hasExistingData;
 
-  // Details panel component
   interface BagDetailsProps {
     item: TealineInventoryComplete;
     isOpen: boolean;
@@ -101,7 +100,6 @@ export function TealineInventory() {
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto min-h-0 space-y-6 pr-2">
-          {/* Basic Info */}
           <div className="space-y-3">
             <h4 className="font-medium text-gray-900 text-sm uppercase tracking-wide">
               Item Information
@@ -124,7 +122,6 @@ export function TealineInventory() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Primary Location:</span>
                 <Badge variant="default" className="text-xs whitespace-nowrap">
-                  {/* Primary location from bag_details - most common location */}
                   {item.bag_details?.length
                     ? Object.entries(
                         item.bag_details.reduce((acc: { [key: string]: number }, bag) => {
@@ -138,7 +135,6 @@ export function TealineInventory() {
             </div>
           </div>
 
-          {/* Summary Stats */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-tea-50 rounded-lg text-center">
               <p className="text-xs text-gray-600 uppercase tracking-wide">Total Bags</p>
@@ -150,14 +146,12 @@ export function TealineInventory() {
             </div>
           </div>
 
-          {/* Receiving Duration */}
           <div className="space-y-2">
             <h4 className="font-medium text-gray-900 text-sm uppercase tracking-wide">
               Receiving Duration
             </h4>
             <div className="p-3 bg-tea-50 rounded-lg">
               {(() => {
-                // Calculate receiving duration and average delay from bag_details
                 const bagTimestamps = item.bag_details
                   ? item.bag_details.map((bag: any) => new Date(bag.received_timestamp).getTime())
                   : [];
@@ -173,7 +167,6 @@ export function TealineInventory() {
                   const durationHours = durationMs / (1000 * 60 * 60);
                   const durationMinutes = durationMs / (1000 * 60);
 
-                  // Format duration display
                   if (durationMs === 0) {
                     durationDisplay = "Same time";
                   } else if (durationHours < 1) {
@@ -190,7 +183,6 @@ export function TealineInventory() {
                       remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
                   }
 
-                  // Calculate average delay between bags (match table row logic)
                   const totalBags = Math.max(bagTimestamps.length - 1, 1);
                   const avgDelayMinutes = durationMinutes / totalBags;
                   if (avgDelayMinutes < 1) {
@@ -219,7 +211,6 @@ export function TealineInventory() {
             </div>
           </div>
 
-          {/* Individual Bags */}
           <div className="space-y-3">
             <h4 className="font-medium text-gray-900 text-sm uppercase tracking-wide">
               Individual Bags ({item.bag_details?.length || 0})
@@ -267,7 +258,6 @@ export function TealineInventory() {
     );
   }
 
-  // Use real API data
   const inventoryData = inventoryResponse?.data || [];
   const metaData = inventoryResponse?.meta || {
     total_items: 0,
@@ -285,11 +275,6 @@ export function TealineInventory() {
     },
   };
 
-  // Debug logging
-  console.log("🔍 [TealineInventory] API Response:", inventoryResponse);
-  console.log("🔍 [TealineInventory] Meta Data:", metaData);
-
-  // Compute totals from current page data as fallback if API doesn't provide them
   const computedTotals = {
     inventory_weight: inventoryData.reduce(
       (sum, item) => sum + Number(item.total_net_weight || 0),
@@ -301,48 +286,39 @@ export function TealineInventory() {
     ),
   };
 
-  // Use API totals if available, otherwise use computed totals from current page
   const displayTotals = {
     total_inventory_weight: metaData.total_inventory_weight || computedTotals.inventory_weight,
     total_available_weight: metaData.total_available_weight || computedTotals.available_weight,
   };
 
-  // Handle server-side search
   const handleSearch = () => {
-    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setIsUserInteracting(true);
     setSearchQuery(searchTerm.trim());
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1);
   };
 
-  // Handle clear search
   const handleClearSearch = () => {
-    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setIsUserInteracting(true);
     setSearchTerm("");
     setSearchQuery("");
     setCurrentPage(1);
   };
 
-  // Handle pagination changes
   const handlePageChange = (page: number) => {
-    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setIsUserInteracting(true);
     setCurrentPage(page);
   };
 
-  // Handle page size changes
   const handlePageSizeChange = (size: number) => {
-    setIsUserInteracting(true); // Mark as user-initiated interaction
+    setIsUserInteracting(true);
     setItemsPerPage(size);
     setCurrentPage(1);
   };
 
-  // Server-side pagination from API response
   const totalItems = metaData.pagination?.total_count || 0;
   const totalPages = metaData.pagination?.total_pages || 1;
-
-  // Use server-side paginated data directly (search is handled server-side)
   const paginatedData = inventoryData;
 
-  // Export functions
   const handleExportInventory = (format: "csv" | "pdf") => {
     const columns: ExportColumn[] = [
       { key: "item_code", header: "Item Code" },
@@ -357,7 +333,6 @@ export function TealineInventory() {
       { key: "last_updated", header: "Last Updated" },
     ];
 
-    // Note: Export will only include current page data due to server-side pagination
     const exportData = inventoryData.map((item) => ({
       ...item,
       first_received_date: formatDateForExport(new Date(item.first_received_date)),
@@ -417,7 +392,6 @@ export function TealineInventory() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold" style={{ color: "#237c4b" }}>
@@ -454,7 +428,6 @@ export function TealineInventory() {
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-tea-200">
           <CardContent className="p-6">
@@ -517,11 +490,9 @@ export function TealineInventory() {
         </Card>
       </div>
 
-      {/* Filters & View Controls */}
       <Card className="bg-tea-50">
         <CardContent>
           <div className="space-y-4">
-            {/* Search Row */}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -560,7 +531,6 @@ export function TealineInventory() {
               )}
             </div>
 
-            {/* View Toggle & Summary */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
@@ -606,10 +576,8 @@ export function TealineInventory() {
         </CardContent>
       </Card>
 
-      {/* Main Content Area - Table View */}
       {viewMode === "table" && (
         <div className="flex gap-6 items-start relative">
-          {/* Show loading panel when loading, otherwise show normal content */}
           {isInteractionLoading ? (
             <Card className={`${detailsPanelOpen ? "flex-1" : "w-full"}`}>
               <CardContent className="flex items-center justify-center py-24">
@@ -632,6 +600,7 @@ export function TealineInventory() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="px-6 py-3">Last Received</TableHead>
                         <TableHead className="px-6 py-3">Item Code</TableHead>
                         <TableHead className="px-6 py-3">No of bags</TableHead>
                         <TableHead className="px-6 py-3">Weight</TableHead>
@@ -640,7 +609,6 @@ export function TealineInventory() {
                     </TableHeader>
                     <TableBody>
                       {paginatedData.map((item) => {
-                        // Calculate receiving duration and average delay from bag_details
                         const bagTimestamps = item.bag_details
                           ? item.bag_details.map((bag: any) =>
                               new Date(bag.received_timestamp).getTime()
@@ -653,12 +621,11 @@ export function TealineInventory() {
                         if (bagTimestamps.length > 0) {
                           const firstTimestamp = Math.min(...bagTimestamps);
                           const lastTimestamp = Math.max(...bagTimestamps);
-                          const durationMs = lastTimestamp - firstTimestamp;
-                          const durationHours = durationMs / (1000 * 60 * 60);
-                          const durationMinutes = durationMs / (1000 * 60);
+                          const durationSeconds = (lastTimestamp - firstTimestamp) / 1000;
+                          const durationMinutes = durationSeconds / 60;
+                          const durationHours = durationSeconds / 3600;
 
-                          // Format duration display
-                          if (durationMs === 0) {
+                          if (durationSeconds === 0) {
                             durationDisplay = "Same time";
                           } else if (durationHours < 1) {
                             durationDisplay = `${Math.ceil(durationMinutes)} min`;
@@ -676,21 +643,24 @@ export function TealineInventory() {
                               remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
                           }
 
-                          // Calculate average delay between bags
                           const totalBags = Math.max(bagTimestamps.length - 1, 1);
-                          const avgDelayMinutes = durationMinutes / totalBags;
-                          if (avgDelayMinutes < 1) {
-                            avgDelayDisplay = "<1 min/bag";
-                          } else if (avgDelayMinutes < 60) {
-                            avgDelayDisplay = `~${Math.ceil(avgDelayMinutes)} min/bag`;
+                          const avgDelaySeconds = durationSeconds / totalBags;
+                          if (avgDelaySeconds < 60) {
+                            avgDelayDisplay = `~${Math.ceil(avgDelaySeconds)}s/bag`;
+                          } else if (avgDelaySeconds < 3600) {
+                            avgDelayDisplay = `~${Math.ceil(avgDelaySeconds / 60)} min/bag`;
                           } else {
-                            const avgDelayHours = avgDelayMinutes / 60;
-                            avgDelayDisplay = `~${avgDelayHours.toFixed(1)}h/bag`;
+                            avgDelayDisplay = `~${(avgDelaySeconds / 3600).toFixed(1)}h/bag`;
                           }
                         }
 
                         return (
                           <TableRow key={item.item_code}>
+                            <TableCell className="px-6 py-4">
+                              <div className="text-sm">
+                                {new Date(item.last_received_date).toLocaleDateString()}
+                              </div>
+                            </TableCell>
                             <TableCell className="px-6 py-4">
                               <div>
                                 <button
@@ -728,7 +698,6 @@ export function TealineInventory() {
                   </Table>
                 </div>
 
-                {/* Pagination */}
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -741,7 +710,6 @@ export function TealineInventory() {
             </Card>
           )}
 
-          {/* Bag Details Sidebar - only show when not loading */}
           {!isInteractionLoading && selectedItem && detailsPanelOpen && (
             <BagDetailsSidebar
               item={selectedItem}
@@ -755,7 +723,6 @@ export function TealineInventory() {
         </div>
       )}
 
-      {/* Location View - Placeholder */}
       {viewMode === "location" && (
         <Card>
           <CardContent className="p-8 text-center">
@@ -768,7 +735,6 @@ export function TealineInventory() {
         </Card>
       )}
 
-      {/* Analytics View - Placeholder */}
       {viewMode === "analytics" && (
         <Card>
           <CardContent className="p-8 text-center">

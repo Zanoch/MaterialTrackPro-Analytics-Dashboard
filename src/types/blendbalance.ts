@@ -147,7 +147,7 @@ export interface BlendbalanceSearchResponse {
   };
 }
 
-export type SearchContext = 'admin' | 'user' | 'transfer' | 'quality';
+export type SearchContext = 'admin' | 'transfer' | 'quality';
 
 // ===== DASHBOARD METRICS INTERFACES =====
 
