@@ -1,6 +1,14 @@
 // Mock inventory data for dev panel testing
 // Bag receive times spread 30-60 seconds apart
 
+// Generate realistic item code (T or I + year 25 + 4-digit number)
+function generateRealisticItemCode(): string {
+  const prefix = Math.random() > 0.5 ? 'T' : 'I';
+  const year = '25';
+  const randomDigits = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  return `${prefix}${year}${randomDigits}`;
+}
+
 function generateBagDetails(count: number, startTime: Date) {
   const bags = [];
   let currentTime = startTime.getTime();
@@ -22,7 +30,7 @@ function generateBagDetails(count: number, startTime: Date) {
   return bags;
 }
 
-function generateMockItem(index: number) {
+function generateMockItem() {
   const brokers = [
     'ASIA SIYAKA COMMODITIES PLC',
     'EASTERN BROKERS LIMITED',
@@ -51,7 +59,7 @@ function generateMockItem(index: number) {
   const remainingWeight = bagDetails.reduce((sum, bag) => sum + bag.remaining_weight, 0);
 
   return {
-    item_code: `MOCK-${String(index + 1).padStart(4, '0')}`,
+    item_code: generateRealisticItemCode(),
     created_ts: String(startTime.getTime()),
     broker: brokers[Math.floor(Math.random() * brokers.length)],
     garden: gardens[Math.floor(Math.random() * gardens.length)],
@@ -69,7 +77,7 @@ function generateMockItem(index: number) {
 // Generate 30 items (more than 1 page)
 export const mockInventoryData = {
   success: true,
-  data: Array.from({ length: 30 }, (_, i) => generateMockItem(i)),
+  data: Array.from({ length: 30 }, () => generateMockItem()),
   meta: {
     total_items: 30,
     current_page_items: 25,

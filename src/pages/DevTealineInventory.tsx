@@ -6,14 +6,10 @@ import {
   RefreshCw,
   Search,
   Package,
-  MapPin,
   Loader2,
   FileDown,
   FileText,
   AlertTriangle,
-  TrendingUp,
-  BarChart2,
-  FileSpreadsheet,
   X,
   Warehouse,
 } from "lucide-react";
@@ -42,15 +38,8 @@ import {
 } from "../utils/exportUtils";
 import type { TealineInventoryComplete } from "../types/tealine";
 
-export function DevTealineInventory() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<TealineInventoryComplete | null>(null);
-  const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "location" | "analytics">("table");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+// Separate component for animated gauge to isolate re-renders
+function AnimatedUnloadingGauge() {
   const [mockUnloadingData, setMockUnloadingData] = useState<UnloadingData>({
     itemCode: 'TEA-2024-001',
     currentDelay: 0,
@@ -59,6 +48,40 @@ export function DevTealineInventory() {
     totalBags: 120,
     isUnloading: true
   });
+
+  // Animate gauge from 0 to max (150 seconds) smoothly
+  useEffect(() => {
+    const maxDelay = 150;
+    const incrementStep = 1;
+    const intervalTime = 100;
+
+    const interval = setInterval(() => {
+      setMockUnloadingData(prev => {
+        const nextDelay = prev.currentDelay + incrementStep;
+        const newDelay = nextDelay > maxDelay ? 0 : nextDelay;
+
+        return {
+          ...prev,
+          currentDelay: newDelay,
+          currentBag: Math.min(Math.floor((newDelay / maxDelay) * 120) + 1, 120),
+        };
+      });
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return <UnloadingMetricCard data={mockUnloadingData} className="row-span-2" />;
+}
+
+export function DevTealineInventory() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<TealineInventoryComplete | null>(null);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const queryParams = {
     limit: itemsPerPage,
@@ -80,31 +103,6 @@ export function DevTealineInventory() {
       setIsUserInteracting(false);
     }
   }, [isFetching, isUserInteracting]);
-
-  // Animate gauge from 0 to max (150 seconds) smoothly
-  useEffect(() => {
-    const maxDelay = 150;
-    const incrementStep = 1; // Increase by 1 second each step
-    const intervalTime = 100; // Update every 100ms for smooth animation
-
-    const interval = setInterval(() => {
-      setMockUnloadingData(prev => {
-        const nextDelay = prev.currentDelay + incrementStep;
-
-        // Reset to 0 when reaching max, creating continuous loop
-        const newDelay = nextDelay > maxDelay ? 0 : nextDelay;
-
-        return {
-          ...prev,
-          currentDelay: newDelay,
-          // Optional: update bag count to simulate progress
-          currentBag: Math.min(Math.floor((newDelay / maxDelay) * 120) + 1, 120),
-        };
-      });
-    }, intervalTime);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const hasExistingData = !!inventoryResponse;
   const isInitialLoading = isLoading && !hasExistingData;
@@ -462,10 +460,7 @@ export function DevTealineInventory() {
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <UnloadingMetricCard
-          data={mockUnloadingData}
-          className="row-span-2"
-        />
+        <AnimatedUnloadingGauge />
         <SubMetricCard
           title="Total Tea Items"
           value={metaData.total_items.toLocaleString()}
@@ -521,43 +516,7 @@ export function DevTealineInventory() {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setViewMode("table")}
-                  className={`px-4 py-2 text-sm font-medium rounded-md ${
-                    viewMode === "table"
-                      ? "bg-tea-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <FileSpreadsheet className="h-4 w-4 inline mr-1" />
-                  Table View
-                </button>
-                <button
-                  onClick={() => setViewMode("location")}
-                  className={`px-4 py-2 text-sm font-medium rounded-md ${
-                    viewMode === "location"
-                      ? "bg-tea-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  Location View
-                </button>
-                <button
-                  onClick={() => setViewMode("analytics")}
-                  className={`px-4 py-2 text-sm font-medium rounded-md ${
-                    viewMode === "analytics"
-                      ? "bg-tea-600 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <BarChart2 className="h-4 w-4 inline mr-1" />
-                  Analytics View
-                </button>
-              </div>
-
+            <div className="flex items-center justify-end">
               <div className="text-sm text-gray-600">
                 🔍 Showing {paginatedData.length} of {metaData.pagination.total_count} items
               </div>
@@ -566,8 +525,7 @@ export function DevTealineInventory() {
         </CardContent>
       </Card>
 
-      {viewMode === "table" && (
-        <div className="flex gap-6 items-start relative">
+      <div className="flex gap-6 items-start relative">
           {isInteractionLoading ? (
             <Card className={`${detailsPanelOpen ? "flex-1" : "w-full"}`}>
               <CardContent className="flex items-center justify-center py-24">
@@ -711,31 +669,6 @@ export function DevTealineInventory() {
             />
           )}
         </div>
-      )}
-
-      {viewMode === "location" && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900">Location View</p>
-            <p className="text-sm text-gray-600">
-              Location-based inventory visualization coming soon
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {viewMode === "analytics" && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <BarChart2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900">Analytics View</p>
-            <p className="text-sm text-gray-600">
-              Weight distribution and allocation analytics coming soon
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
