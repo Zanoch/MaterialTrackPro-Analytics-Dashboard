@@ -1,20 +1,16 @@
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { Warehouse, Package, Leaf, Home, User, LogOut, ToggleRight, Menu } from 'lucide-react';
+import { Warehouse, Home, User, LogOut, ToggleRight, Menu } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAppStore } from '../store';
 import { useAuthenticator } from '../components/auth/context';
 
 // Import actual pages to replicate
 import { DevTealineInventory } from './DevTealineInventory';
-import { DevPendingTealines } from './DevPendingTealines';
-import { DevBlendsheetOperations } from './DevBlendsheetOperations';
 
 // Test menu items - mirrors main dashboard pages
 const testMenuItems = [
   { path: '/dev-test', label: 'Overview', icon: Home, end: true },
   { path: '/dev-test/inventory', label: 'Tealine Inventory', icon: Warehouse },
-  { path: '/dev-test/pending-tealine', label: 'Pending Tealine', icon: Package },
-  { path: '/dev-test/blendsheet', label: 'Blend Operations', icon: Leaf },
 ];
 
 // Dev Header Component
@@ -177,8 +173,6 @@ export function DevTestPanel() {
           <Routes>
             <Route index element={<DevOverview />} />
             <Route path="inventory" element={<DevTealineInventory />} />
-            <Route path="pending-tealine" element={<DevPendingTealines />} />
-            <Route path="blendsheet" element={<DevBlendsheetOperations />} />
             <Route path="*" element={<Navigate to="/dev-test" replace />} />
           </Routes>
         </main>

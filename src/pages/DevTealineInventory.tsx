@@ -15,10 +15,14 @@ import {
   BarChart2,
   FileSpreadsheet,
   X,
+  Warehouse,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Badge } from "../components/ui/Badge";
+import { PageHeader } from "../components/ui/PageHeader";
+import { SubMetricCard } from "../components/ui/SubMetricCard";
+import { UnloadingMetricCard, type UnloadingData } from "../components/ui/UnloadingMetricCard";
 import {
   Table,
   TableBody,
@@ -47,6 +51,14 @@ export function DevTealineInventory() {
   const [viewMode, setViewMode] = useState<"table" | "location" | "analytics">("table");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [mockUnloadingData, setMockUnloadingData] = useState<UnloadingData>({
+    itemCode: 'TEA-2024-001',
+    currentDelay: 0,
+    totalTime: '2h 15m',
+    currentBag: 15,
+    totalBags: 120,
+    isUnloading: true
+  });
 
   const queryParams = {
     limit: itemsPerPage,
@@ -68,6 +80,31 @@ export function DevTealineInventory() {
       setIsUserInteracting(false);
     }
   }, [isFetching, isUserInteracting]);
+
+  // Animate gauge from 0 to max (150 seconds) smoothly
+  useEffect(() => {
+    const maxDelay = 150;
+    const incrementStep = 1; // Increase by 1 second each step
+    const intervalTime = 100; // Update every 100ms for smooth animation
+
+    const interval = setInterval(() => {
+      setMockUnloadingData(prev => {
+        const nextDelay = prev.currentDelay + incrementStep;
+
+        // Reset to 0 when reaching max, creating continuous loop
+        const newDelay = nextDelay > maxDelay ? 0 : nextDelay;
+
+        return {
+          ...prev,
+          currentDelay: newDelay,
+          // Optional: update bag count to simulate progress
+          currentBag: Math.min(Math.floor((newDelay / maxDelay) * 120) + 1, 120),
+        };
+      });
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const hasExistingData = !!inventoryResponse;
   const isInitialLoading = isLoading && !hasExistingData;
@@ -392,102 +429,55 @@ export function DevTealineInventory() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: "#237c4b" }}>
-            Tealine Inventory - Seeduwa
-          </h2>
-          <p className="text-gray-600">
-            Tea Stock Management • Last Sync: {new Date().toLocaleTimeString()}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Tealine Inventory - Seeduwa"
+        subtitle={`Tea Stock Management • Last Sync: ${new Date().toLocaleTimeString()}`}
+        icon={Warehouse}
+        actions={[
           <button
+            key="sync"
             onClick={() => refetch()}
             className="inline-flex items-center gap-2 rounded-md bg-tea-600 px-4 py-2 text-sm font-medium text-white hover:bg-tea-700"
           >
             <RefreshCw className="h-4 w-4" />
             Sync
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleExportInventory("csv")}
-              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <FileDown className="h-4 w-4" />
-              Export CSV
-            </button>
-            <button
-              onClick={() => handleExportInventory("pdf")}
-              className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <FileText className="h-4 w-4" />
-              Export PDF
-            </button>
-          </div>
-        </div>
-      </div>
+          </button>,
+          <button
+            key="csv"
+            onClick={() => handleExportInventory("csv")}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FileDown className="h-4 w-4" />
+            Export CSV
+          </button>,
+          <button
+            key="pdf"
+            onClick={() => handleExportInventory("pdf")}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <FileText className="h-4 w-4" />
+            Export PDF
+          </button>,
+        ]}
+      />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-tea-200">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="rounded-full bg-tea-100 p-3">
-                <Package className="h-6 w-6 text-tea-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-tea-700 uppercase">Total Tea Items</p>
-                <p className="text-2xl font-bold text-tea-600">
-                  {metaData.total_items.toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">↑ 12 new today</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-tea-200">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="rounded-full bg-tea-100 p-3">
-                <Package className="h-6 w-6 text-tea-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-tea-700 uppercase">Total Inventory Weight</p>
-                <p className="text-2xl font-bold text-tea-600">
-                  {displayTotals.total_inventory_weight.toFixed(0).toLocaleString()} kg
-                </p>
-                <p className="text-xs text-gray-500 mt-1">↓ 2.3% from yesterday</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-tea-200">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="rounded-full bg-tea-100 p-3">
-                <TrendingUp className="h-6 w-6 text-tea-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-tea-700 uppercase">Available Weight</p>
-                <p className="text-2xl font-bold text-tea-600">
-                  {displayTotals.total_available_weight.toFixed(0).toLocaleString()} kg
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {displayTotals.total_inventory_weight > 0
-                    ? (
-                        (displayTotals.total_available_weight /
-                          displayTotals.total_inventory_weight) *
-                        100
-                      ).toFixed(1)
-                    : "0.0"}
-                  % of total
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4">
+        <UnloadingMetricCard
+          data={mockUnloadingData}
+          className="row-span-2"
+        />
+        <SubMetricCard
+          title="Total Tea Items"
+          value={metaData.total_items.toLocaleString()}
+          icon={Package}
+          trend="↑ 12 new today"
+        />
+        <SubMetricCard
+          title="Total Inventory Weight"
+          value={`${displayTotals.total_inventory_weight.toFixed(0).toLocaleString()} kg`}
+          icon={Package}
+          trend="↓ 2.3% from yesterday"
+        />
       </div>
 
       <Card className="bg-tea-50">
