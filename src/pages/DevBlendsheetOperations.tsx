@@ -212,31 +212,7 @@ export function DevBlendsheetOperations() {
 
   // Calculate blend-out weight (sum of blend_out_weight from all batches)
   const calculateBlendOutWeight = (item: BlendsheetData) => {
-    return item.batches.reduce((sum, batch) => sum + batch.blend_out_weight, 0);
-  };
-
-  // Get blend-in time range from the latest batch (by created_ts)
-  const getLatestBlendInTime = (item: BlendsheetData) => {
-    if (item.batches.length === 0) return "-";
-
-    // Find the latest batch by created_ts
-    const latestBatch = item.batches.reduce((latest, current) =>
-      current.created_ts > latest.created_ts ? current : latest
-    );
-
-    return latestBatch.blend_in_time || "-";
-  };
-
-  // Get blend-out time range from the latest batch (by created_ts)
-  const getLatestBlendOutTime = (item: BlendsheetData) => {
-    if (item.batches.length === 0) return "-";
-
-    // Find the latest batch by created_ts
-    const latestBatch = item.batches.reduce((latest, current) =>
-      current.created_ts > latest.created_ts ? current : latest
-    );
-
-    return latestBatch.blend_out_time || "-";
+    return item.batches.reduce((sum, batch) => sum + (batch.blend_out_weight || 0), 0);
   };
 
   // Calculate blendsheet status based on batch data
@@ -260,7 +236,7 @@ export function DevBlendsheetOperations() {
 
   // Calculate efficiency for a single batch (only if completed)
   const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
-    if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0) {
+    if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0 || !batch.blend_out_weight) {
       return null;
     }
     return (batch.blend_out_weight / batch.blend_in_weight) * 100;

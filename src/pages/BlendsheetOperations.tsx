@@ -174,7 +174,7 @@ export function BlendsheetOperations() {
 
   // Calculate blend-out weight (sum of blend_out_weight from all batches)
   const calculateBlendOutWeight = (item: BlendsheetData) => {
-    return item.batches.reduce((sum, batch) => sum + batch.blend_out_weight, 0);
+    return item.batches.reduce((sum, batch) => sum + (batch.blend_out_weight || 0), 0);
   };
 
   // Get blend-in time range from the latest batch (by created_ts)
@@ -222,7 +222,7 @@ export function BlendsheetOperations() {
 
   // Calculate efficiency for a single batch (only if completed)
   const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
-    if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0) {
+    if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0 || !batch.blend_out_weight) {
       return null;
     }
     return (batch.blend_out_weight / batch.blend_in_weight) * 100;
