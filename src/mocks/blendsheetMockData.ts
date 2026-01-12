@@ -3,19 +3,19 @@
 import type { MockBlendsheetBatchData, MockBlendsheetData } from '../types/blendsheet';
 
 function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate: Date, targetBlendInWeight: number): MockBlendsheetBatchData {
-  // Expected blend-in weight (what should be blended in for this batch)
-  const blendInWeight = targetBlendInWeight;
+  // Target blend-in weight (what should be blended in for this batch - mock tracking only)
+  const targetBlendIn = targetBlendInWeight;
 
-  // Actual blend-in weight (what has actually been blended in)
+  // Actual blend-in weight (what has actually been blended in - API field)
   // 90% have full weight, 10% have partial (including zero)
-  let actualBlendInWeight: number;
+  let actualBlendIn: number;
   if (Math.random() > 0.10) {
-    // 90% - Full expected weight (will proceed to RECEIVE or COMPLETED)
-    actualBlendInWeight = blendInWeight;
+    // 90% - Full target weight (will proceed to RECEIVE or COMPLETED)
+    actualBlendIn = targetBlendIn;
   } else {
-    // 10% - Partial weight (0-99% of expected) -> ALLOCATE status
+    // 10% - Partial weight (0-99% of target) -> ALLOCATE status
     const partialPercentage = Math.random() * 0.99; // 0% to 99%
-    actualBlendInWeight = Math.floor(blendInWeight * partialPercentage * 100) / 100;
+    actualBlendIn = Math.floor(targetBlendIn * partialPercentage * 100) / 100;
   }
 
   const formatDateTime = (date: Date) => {
@@ -41,36 +41,36 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
 
   // Status transition logic: ALLOCATE -> RECEIVE -> COMPLETED
   let status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
-  let blendInTimeValue, expectedBlendOutWeight, actualBlendOutWeight, blendOutTimeValue;
+  let blendInTimeValue, targetBlendOut, actualBlendOut, blendOutTimeValue;
 
   // Step 1: ALLOCATE -> RECEIVE (based on blend-in fulfillment)
-  if (actualBlendInWeight < blendInWeight) {
+  if (actualBlendIn < targetBlendIn) {
     // ALLOCATE: blend-in not fulfilled
     status = 'ALLOCATE';
     blendInTimeValue = null;
-    expectedBlendOutWeight = null;
-    actualBlendOutWeight = null;
+    targetBlendOut = null;
+    actualBlendOut = null;
     blendOutTimeValue = null;
   } else {
     // Blend-in complete, now check blend-out for RECEIVE -> COMPLETED
     blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
 
-    // Expected blend-out weight (99-100% of actual blend-in)
+    // Target blend-out weight (99-100% of actual blend-in - mock tracking only)
     const blendOutVariance = Math.random() * 0.01; // 0% to 1%
-    expectedBlendOutWeight = Math.floor(actualBlendInWeight * (1 - blendOutVariance) * 100) / 100;
+    targetBlendOut = Math.floor(actualBlendIn * (1 - blendOutVariance) * 100) / 100;
 
-    // Actual blend-out weight (what has actually been blended out)
+    // Actual blend-out weight (what has actually been blended out - API field)
     // Of the 90% that complete blend-in: 30% RECEIVE, 70% COMPLETED
     if (Math.random() > 0.70) {
-      // 30% (of 90%) - RECEIVE: Partial blend-out (0-99% of expected)
+      // 30% (of 90%) - RECEIVE: Partial blend-out (0-99% of target)
       const partialPercentage = Math.random() * 0.99; // 0% to 99%
-      actualBlendOutWeight = Math.floor(expectedBlendOutWeight * partialPercentage * 100) / 100;
+      actualBlendOut = Math.floor(targetBlendOut * partialPercentage * 100) / 100;
       status = 'RECEIVE';
       // Blend-out time not recorded yet (still in progress)
       blendOutTimeValue = null;
     } else {
       // 70% (of 90%) - COMPLETED: Full blend-out
-      actualBlendOutWeight = expectedBlendOutWeight;
+      actualBlendOut = targetBlendOut;
       status = 'COMPLETED';
       // Blend-out time recorded when completed
       blendOutTimeValue = `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`;
@@ -80,13 +80,13 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
   return {
     item_code: `${blendsheetNo}/${batchIndex + 1}`,
     created_ts: createdDate,
-    blend_in_weight: blendInWeight, // Expected blend-in weight
-    actual_blend_in_weight: actualBlendInWeight, // Actual blend-in weight received
+    blend_in_weight: actualBlendIn, // API: Actual blend-in weight received
     blend_in_time: blendInTimeValue, // null for ALLOCATE
-    blend_out_weight: expectedBlendOutWeight, // null for ALLOCATE, expected for RECEIVE/COMPLETED
-    actual_blend_out_weight: actualBlendOutWeight, // null for ALLOCATE, partial for RECEIVE, full for COMPLETED
+    blend_out_weight: actualBlendOut, // API: null for ALLOCATE, partial for RECEIVE, full for COMPLETED
     blend_out_time: blendOutTimeValue, // null for ALLOCATE/RECEIVE, recorded for COMPLETED
     status: status,
+    target_blend_in_weight: targetBlendIn, // Mock: Target/expected blend-in weight
+    target_blend_out_weight: targetBlendOut, // Mock: Target/expected blend-out weight
   };
 }
 

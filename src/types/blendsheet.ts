@@ -23,8 +23,8 @@ export interface BlendsheetBatchData {
 
 // Mock-specific batch interface (extends API type with tracking fields)
 export interface MockBlendsheetBatchData extends BlendsheetBatchData {
-  actual_blend_in_weight: number; // Mock: tracks partial blend-in fulfillment
-  actual_blend_out_weight: number | null; // Mock: tracks partial blend-out fulfillment
+  target_blend_in_weight: number; // Mock: target/expected blend-in weight for this batch
+  target_blend_out_weight: number | null; // Mock: target/expected blend-out weight for this batch
 }
 
 // Extended blendsheet with calculated fields (API response)

@@ -46,7 +46,7 @@ export function DevBlendsheetOperations() {
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('this_week');
   const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'batches' | 'info'>>({});
   const [expandedMixtureSections, setExpandedMixtureSections] = useState<Record<string, Set<string>>>({});
@@ -152,19 +152,19 @@ export function DevBlendsheetOperations() {
   };
 
   const toggleRowExpansion = (rowId: string) => {
-    const newExpandedRows = new Set(expandedRows);
-    if (newExpandedRows.has(rowId)) {
-      newExpandedRows.delete(rowId);
+    if (expandedRow === rowId) {
+      // Collapse current row
+      setExpandedRow(null);
       // Clean up tab state when row is collapsed
       const newTabs = { ...expandedRowTabs };
       delete newTabs[rowId];
       setExpandedRowTabs(newTabs);
     } else {
-      newExpandedRows.add(rowId);
+      // Expand new row (automatically collapses previous)
+      setExpandedRow(rowId);
       // Initialize tab to 'batches' when row is expanded
-      setExpandedRowTabs({ ...expandedRowTabs, [rowId]: 'batches' });
+      setExpandedRowTabs({ [rowId]: 'batches' });
     }
-    setExpandedRows(newExpandedRows);
   };
 
   const setExpandedRowTab = (rowId: string, tab: 'batches' | 'info') => {
@@ -555,7 +555,7 @@ export function DevBlendsheetOperations() {
                           className="cursor-pointer hover:bg-gray-50"
                         >
                           <TableCell className="px-6 py-4">
-                            {expandedRows.has(item.blendsheet_no) ? (
+                            {expandedRow === item.blendsheet_no ? (
                               <ChevronDown className="h-4 w-4 text-gray-500" />
                             ) : (
                               <ChevronRight className="h-4 w-4 text-gray-500" />
@@ -622,7 +622,7 @@ export function DevBlendsheetOperations() {
                         </TableRow>
 
                         {/* Expanded details with tabs */}
-                        {expandedRows.has(item.blendsheet_no) && (
+                        {expandedRow === item.blendsheet_no && (
                             <TableRow key={`${item.blendsheet_no}-expanded`}>
                               <TableCell colSpan={7} className="px-6 py-4 bg-gray-50">
                                 <div className="space-y-4">
@@ -658,85 +658,101 @@ export function DevBlendsheetOperations() {
                                         Batch Details for {item.blendsheet_no}
                                       </h3>
 
-                                      {item.batches.length > 0 ? (
-                                        <>
-                                          {/* Child Table Header */}
-                                          <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
-                                            <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
-                                              <div>Item Code</div>
-                                              <div>Blend-In Weight</div>
-                                              <div>Blend-In Time</div>
-                                              <div>Blend-Out Weight</div>
-                                              <div>Blend-Out Time</div>
-                                              <div>Status & Efficiency</div>
-                                            </div>
+                                      <>
+                                        {/* Child Table Header */}
+                                        <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
+                                          <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
+                                            <div>Item Code</div>
+                                            <div>Blend-In Weight</div>
+                                            <div>Blend-In Time</div>
+                                            <div>Blend-Out Weight</div>
+                                            <div>Blend-Out Time</div>
+                                            <div>Status & Efficiency</div>
                                           </div>
-
-                                          {/* Child Table Body - Using actual batch data */}
-                                          <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
-                                            {item.batches.map((batch) => {
-                                              const batchEfficiency = calculateBatchEfficiency(batch);
-
-                                              return (
-                                                <div
-                                                  key={batch.item_code}
-                                                  className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
-                                                >
-                                                  <div className="font-medium font-mono text-blue-600">
-                                                    {batch.item_code}
-                                                  </div>
-                                                  <div className="text-blue-600 font-medium">
-                                                    {formatWeight(batch.blend_in_weight)}
-                                                  </div>
-                                                  <div className="text-gray-700">
-                                                    {batch.status === 'ALLOCATE' ? (
-                                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                                        Ongoing
-                                                      </span>
-                                                    ) : (
-                                                      batch.blend_in_time || '-'
-                                                    )}
-                                                  </div>
-                                                  <div className="text-green-600 font-medium">
-                                                    {batch.status === 'COMPLETED' || batch.status === 'RECEIVE'
-                                                      ? formatWeight(batch.blend_out_weight)
-                                                      : '-'}
-                                                  </div>
-                                                  <div className="text-gray-700">
-                                                    {batch.status === 'RECEIVE' ? (
-                                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                                        Ongoing
-                                                      </span>
-                                                    ) : (
-                                                      batch.blend_out_time || '-'
-                                                    )}
-                                                  </div>
-                                                  <div>
-                                                    {batch.status !== 'COMPLETED' && (
-                                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                                        In Progress
-                                                      </span>
-                                                    )}
-                                                    {batch.status === 'COMPLETED' && (
-                                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                        Completed
-                                                        {batchEfficiency
-                                                          ? ` • ${formatPercentage(batchEfficiency)}`
-                                                          : ""}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        </>
-                                      ) : (
-                                        /* Empty state placeholder */
-                                        <div className="bg-white rounded-md border border-gray-200 p-8 text-center">
-                                          <p className="text-sm text-gray-500">No batches created yet</p>
                                         </div>
-                                      )}
+
+                                        {/* Child Table Body - Using actual batch data */}
+                                        <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
+                                          {/* Render created batches */}
+                                          {item.batches.map((batch) => {
+                                            const batchEfficiency = calculateBatchEfficiency(batch);
+
+                                            return (
+                                              <div
+                                                key={batch.item_code}
+                                                className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
+                                              >
+                                                <div className="font-medium font-mono text-blue-600">
+                                                  {batch.item_code}
+                                                </div>
+                                                <div className="text-blue-600 font-medium">
+                                                  {formatWeight(batch.blend_in_weight)}
+                                                </div>
+                                                <div className="text-gray-700">
+                                                  {batch.status === 'ALLOCATE' ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                      Ongoing
+                                                    </span>
+                                                  ) : (
+                                                    batch.blend_in_time || '-'
+                                                  )}
+                                                </div>
+                                                <div className="text-green-600 font-medium">
+                                                  {batch.status === 'COMPLETED' || batch.status === 'RECEIVE'
+                                                    ? formatWeight(batch.blend_out_weight)
+                                                    : '-'}
+                                                </div>
+                                                <div className="text-gray-700">
+                                                  {batch.status === 'RECEIVE' ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                      Ongoing
+                                                    </span>
+                                                  ) : (
+                                                    batch.blend_out_time || '-'
+                                                  )}
+                                                </div>
+                                                <div>
+                                                  {batch.status !== 'COMPLETED' && (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                      In Progress
+                                                    </span>
+                                                  )}
+                                                  {batch.status === 'COMPLETED' && (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                      Completed
+                                                      {batchEfficiency
+                                                        ? ` • ${formatPercentage(batchEfficiency)}`
+                                                        : ""}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+
+                                          {/* Render uncreated batch placeholders */}
+                                          {Array.from({ length: item.no_of_batches - item.batches.length }).map((_, index) => {
+                                            const batchNumber = item.batches.length + index + 1;
+                                            return (
+                                              <div
+                                                key={`uncreated-${batchNumber}`}
+                                                className="grid grid-cols-6 gap-4 p-3 text-sm bg-gray-50"
+                                              >
+                                                <div>
+                                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                                                    Not Created
+                                                  </span>
+                                                </div>
+                                                <div className="text-gray-400">-</div>
+                                                <div className="text-gray-400">-</div>
+                                                <div className="text-gray-400">-</div>
+                                                <div className="text-gray-400">-</div>
+                                                <div className="text-gray-400">-</div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </>
                                     </div>
                                   ) : (
                                     /* Mixture Details Tab */
