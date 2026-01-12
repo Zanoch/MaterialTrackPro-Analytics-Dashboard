@@ -1,11 +1,28 @@
 // Mock blendsheet operations data for dev panel testing
 // Based on real API response structure
+import type { MockBlendsheetBatchData, MockBlendsheetData } from '../types/blendsheet';
 
-function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate: Date) {
-  const blendInWeight = Math.floor(Math.random() * 500 + 200 * 100) / 100; // 200-700 kg with decimals
-  const efficiency = 0.92 + Math.random() * 0.08; // 92-100% efficiency
-  const blendOutWeight = Math.floor(blendInWeight * efficiency * 100) / 100;
+function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate: Date, targetBlendInWeight: number): MockBlendsheetBatchData {
+  // Expected blend-in weight (what should be blended in for this batch)
+  const blendInWeight = targetBlendInWeight;
 
+  // Actual blend-in weight (what has actually been blended in)
+  // 90% have full weight, 10% have partial (including zero)
+  let actualBlendInWeight: number;
+  if (Math.random() > 0.10) {
+    // 90% - Full expected weight (will proceed to RECEIVE or COMPLETED)
+    actualBlendInWeight = blendInWeight;
+  } else {
+    // 10% - Partial weight (0-99% of expected) -> ALLOCATE status
+    const partialPercentage = Math.random() * 0.99; // 0% to 99%
+    actualBlendInWeight = Math.floor(blendInWeight * partialPercentage * 100) / 100;
+  }
+
+  const formatDateTime = (date: Date) => {
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  };
+
+  // Calculate timing data (blend-out always after blend-in, no overlap)
   // Blend-in starts shortly after batch creation (5-30 minutes)
   const blendInStartDelay = Math.floor(Math.random() * 25 + 5); // 5-30 minutes
   const blendInStart = new Date(createdDate.getTime() + blendInStartDelay * 60 * 1000);
@@ -14,7 +31,7 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
   const blendInDuration = Math.floor(Math.random() * 20 + 10); // 10-30 minutes
   const blendInEnd = new Date(blendInStart.getTime() + blendInDuration * 60 * 1000);
 
-  // Blend-out starts 20-45 minutes after blend-in ends
+  // Blend-out starts 20-45 minutes AFTER blend-in ends (no overlap)
   const blendOutDelay = Math.floor(Math.random() * 25 + 20); // 20-45 minutes
   const blendOutStart = new Date(blendInEnd.getTime() + blendOutDelay * 60 * 1000);
 
@@ -22,25 +39,53 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
   const blendOutDuration = Math.floor(Math.random() * 45 + 15); // 15-60 minutes
   const blendOutEnd = new Date(blendOutStart.getTime() + blendOutDuration * 60 * 1000);
 
-  const formatDateTime = (date: Date) => {
-    return date.toISOString().slice(0, 19).replace('T', ' ');
-  };
+  // Status transition logic: ALLOCATE -> RECEIVE -> COMPLETED
+  let status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
+  let blendInTimeValue, expectedBlendOutWeight, actualBlendOutWeight, blendOutTimeValue;
 
-  // Most batches are RECEIVE status (matching current 2025 data pattern)
-  // Only ~5% are COMPLETED (matching older workflow)
-  const status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED' = Math.random() > 0.95 ? 'COMPLETED' : 'RECEIVE';
+  // Step 1: ALLOCATE -> RECEIVE (based on blend-in fulfillment)
+  if (actualBlendInWeight < blendInWeight) {
+    // ALLOCATE: blend-in not fulfilled
+    status = 'ALLOCATE';
+    blendInTimeValue = null;
+    expectedBlendOutWeight = null;
+    actualBlendOutWeight = null;
+    blendOutTimeValue = null;
+  } else {
+    // Blend-in complete, now check blend-out for RECEIVE -> COMPLETED
+    blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
 
-  // All RECEIVE and COMPLETED batches must have blend-in time range
-  // (blend-in time is recorded when batch reaches RECEIVE status)
-  const blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
+    // Expected blend-out weight (99-100% of actual blend-in)
+    const blendOutVariance = Math.random() * 0.01; // 0% to 1%
+    expectedBlendOutWeight = Math.floor(actualBlendInWeight * (1 - blendOutVariance) * 100) / 100;
+
+    // Actual blend-out weight (what has actually been blended out)
+    // Of the 90% that complete blend-in: 30% RECEIVE, 70% COMPLETED
+    if (Math.random() > 0.70) {
+      // 30% (of 90%) - RECEIVE: Partial blend-out (0-99% of expected)
+      const partialPercentage = Math.random() * 0.99; // 0% to 99%
+      actualBlendOutWeight = Math.floor(expectedBlendOutWeight * partialPercentage * 100) / 100;
+      status = 'RECEIVE';
+      // Blend-out time not recorded yet (still in progress)
+      blendOutTimeValue = null;
+    } else {
+      // 70% (of 90%) - COMPLETED: Full blend-out
+      actualBlendOutWeight = expectedBlendOutWeight;
+      status = 'COMPLETED';
+      // Blend-out time recorded when completed
+      blendOutTimeValue = `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`;
+    }
+  }
 
   return {
     item_code: `${blendsheetNo}/${batchIndex + 1}`,
     created_ts: createdDate,
-    blend_in_weight: blendInWeight,
-    blend_in_time: blendInTimeValue,
-    blend_out_weight: blendOutWeight,
-    blend_out_time: `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`,
+    blend_in_weight: blendInWeight, // Expected blend-in weight
+    actual_blend_in_weight: actualBlendInWeight, // Actual blend-in weight received
+    blend_in_time: blendInTimeValue, // null for ALLOCATE
+    blend_out_weight: expectedBlendOutWeight, // null for ALLOCATE, expected for RECEIVE/COMPLETED
+    actual_blend_out_weight: actualBlendOutWeight, // null for ALLOCATE, partial for RECEIVE, full for COMPLETED
+    blend_out_time: blendOutTimeValue, // null for ALLOCATE/RECEIVE, recorded for COMPLETED
     status: status,
   };
 }
@@ -100,7 +145,7 @@ function generateMockMixtureAllocations() {
   return { tealine, blendbalance, officesample, blendsheet };
 }
 
-function generateMockBlendsheet(index: number) {
+function generateMockBlendsheet(index: number): MockBlendsheetData {
   const year = 2025;
   const blendsheetNo = `BS/${year}/${String(600 + index).padStart(4, '0')}`;
 
@@ -108,9 +153,9 @@ function generateMockBlendsheet(index: number) {
     'BLT00148',
     'BLT00128',
     'BTL00364',
-    'BOP-MIX-A',
-    'FBOP-BLEND',
-    'OP-SPECIAL',
+    'BLT00256',
+    'BTL00189',
+    'BLT00312',
   ];
 
   const remarks = [
@@ -122,8 +167,26 @@ function generateMockBlendsheet(index: number) {
     'High-grade blend',
   ];
 
+  // Step 1: Generate raw values
   const plannedWeight = Math.floor(Math.random() * 2000 + 200 * 100) / 100; // 200-2200 kg with decimals
   const noOfBatches = Math.floor(Math.random() * 4) + 1; // 1-5 batches
+
+  // Step 2: Distribute planned weight exactly evenly across all batches (no variance)
+  // All batches should have equal blend-in weights that sum to planned weight
+  const batchBlendInWeights: number[] = [];
+  const weightPerBatch = Math.floor((plannedWeight / noOfBatches) * 100) / 100; // Rounded to 2 decimals
+  let remainingWeight = plannedWeight;
+
+  for (let i = 0; i < noOfBatches; i++) {
+    if (i === noOfBatches - 1) {
+      // Last batch gets exactly the remaining weight to ensure sum = planned weight
+      batchBlendInWeights.push(Math.floor(remainingWeight * 100) / 100);
+    } else {
+      // All other batches get equal weight (no variance)
+      batchBlendInWeights.push(weightPerBatch);
+      remainingWeight -= weightPerBatch;
+    }
+  }
 
   // Distribute dates across different time ranges to ensure all tabs have data:
   // - 30% in last 7 days (this week)
@@ -154,8 +217,10 @@ function generateMockBlendsheet(index: number) {
 
   // Reduce drafts to 10% (was 20%) to ensure more data for time range tabs
   const batchesCreated = Math.random() > 0.1 ? Math.floor(Math.random() * (noOfBatches + 1)) : 0;
-  const batches = Array.from({ length: batchesCreated }, (_, i) =>
-    generateMockBatch(i, blendsheetNo, createdDate)
+
+  // Step 4: Generate batches using the calculated blend-in weights
+  const batches = batchBlendInWeights.slice(0, batchesCreated).map((weight, i) =>
+    generateMockBatch(i, blendsheetNo, createdDate, weight)
   );
 
   return {
@@ -179,7 +244,7 @@ const totalBlendInWeight = allBlendsheets.reduce(
   0
 );
 const totalBlendOutWeight = allBlendsheets.reduce(
-  (sum, bs) => sum + bs.batches.reduce((bSum, b) => bSum + b.blend_out_weight, 0),
+  (sum, bs) => sum + bs.batches.reduce((bSum, b) => bSum + (b.blend_out_weight || 0), 0),
   0
 );
 
@@ -206,7 +271,7 @@ export const mockBlendsheetData = {
 };
 
 // Helper function to filter data by time range
-function filterByTimeRange(data: any[], timeRange: 'this_week' | 'this_month' | 'this_year' | 'lifetime') {
+function filterByTimeRange(data: MockBlendsheetData[], timeRange: 'this_week' | 'this_month' | 'this_year' | 'lifetime'): MockBlendsheetData[] {
   if (timeRange === 'lifetime') {
     return data;
   }
@@ -235,7 +300,7 @@ function filterByTimeRange(data: any[], timeRange: 'this_week' | 'this_month' | 
 
   return data.filter(bs => {
     if (bs.batches.length === 0) return false;
-    const earliestBatch = bs.batches.reduce((earliest: any, current: any) => {
+    const earliestBatch = bs.batches.reduce((earliest: MockBlendsheetBatchData, current: MockBlendsheetBatchData) => {
       const earliestTime = new Date(earliest.created_ts).getTime();
       const currentTime = new Date(current.created_ts).getTime();
       return currentTime < earliestTime ? current : earliest;
@@ -246,16 +311,16 @@ function filterByTimeRange(data: any[], timeRange: 'this_week' | 'this_month' | 
 }
 
 // Helper function to calculate totals for a dataset
-function calculateTotals(data: any[]) {
+function calculateTotals(data: MockBlendsheetData[]) {
   return {
     total_blendsheets: data.length,
     total_planned_weight: data.reduce((sum, bs) => sum + bs.planned_weight, 0),
     total_blend_in_weight: data.reduce(
-      (sum, bs) => sum + bs.batches.reduce((bSum: number, b: any) => bSum + b.blend_in_weight, 0),
+      (sum, bs) => sum + bs.batches.reduce((bSum: number, b: MockBlendsheetBatchData) => bSum + b.blend_in_weight, 0),
       0
     ),
     total_blend_out_weight: data.reduce(
-      (sum, bs) => sum + bs.batches.reduce((bSum: number, b: any) => bSum + b.blend_out_weight, 0),
+      (sum, bs) => sum + bs.batches.reduce((bSum: number, b: MockBlendsheetBatchData) => bSum + (b.blend_out_weight || 0), 0),
       0
     ),
   };
@@ -274,7 +339,7 @@ export function getMockBlendsheetData(page = 1, limit = 25) {
 
   // Calculate totals for all time ranges at once
   const timeRanges: Array<'this_week' | 'this_month' | 'this_year' | 'lifetime'> = ['this_week', 'this_month', 'this_year', 'lifetime'];
-  const timeRangeMetrics: Record<string, any> = {};
+  const timeRangeMetrics: Record<string, ReturnType<typeof calculateTotals>> = {};
 
   timeRanges.forEach(range => {
     const filteredData = filterByTimeRange(allData, range);

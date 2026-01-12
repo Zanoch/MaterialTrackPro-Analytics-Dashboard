@@ -10,18 +10,24 @@ export interface BlendsheetItem {
   actual_weight?: number;
 }
 
-// Blendsheet batch interface
+// Blendsheet batch interface (API response)
 export interface BlendsheetBatchData {
   item_code: string;
   created_ts: Date;
   blend_in_weight: number;
-  blend_in_time: string;
-  blend_out_weight: number;
-  blend_out_time: string;
+  blend_in_time: string | null;
+  blend_out_weight: number | null;
+  blend_out_time: string | null;
   status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
 }
 
-// Extended blendsheet with calculated fields
+// Mock-specific batch interface (extends API type with tracking fields)
+export interface MockBlendsheetBatchData extends BlendsheetBatchData {
+  actual_blend_in_weight: number; // Mock: tracks partial blend-in fulfillment
+  actual_blend_out_weight: number | null; // Mock: tracks partial blend-out fulfillment
+}
+
+// Extended blendsheet with calculated fields (API response)
 export interface BlendsheetData {
   blendsheet_no: string;
   blend_code: string;
@@ -29,6 +35,12 @@ export interface BlendsheetData {
   planned_weight: number;
   no_of_batches: number;
   batches: BlendsheetBatchData[];
+}
+
+// Mock-specific blendsheet interface (uses mock batches)
+export interface MockBlendsheetData extends Omit<BlendsheetData, 'batches'> {
+  batches: MockBlendsheetBatchData[];
+  mixture_allocations?: any; // Mock: mixture allocation data
 }
 
 // Weight flow data for charts

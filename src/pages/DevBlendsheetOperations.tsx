@@ -48,7 +48,7 @@ export function DevBlendsheetOperations() {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [timeRange, setTimeRange] = useState<TimeRange>('this_week');
-  const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'info' | 'batches'>>({});
+  const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'batches' | 'info'>>({});
   const [expandedMixtureSections, setExpandedMixtureSections] = useState<Record<string, Set<string>>>({});
 
   // Get browser's timezone offset in ±HH:MM format
@@ -161,13 +161,13 @@ export function DevBlendsheetOperations() {
       setExpandedRowTabs(newTabs);
     } else {
       newExpandedRows.add(rowId);
-      // Initialize tab to 'info' when row is expanded
-      setExpandedRowTabs({ ...expandedRowTabs, [rowId]: 'info' });
+      // Initialize tab to 'batches' when row is expanded
+      setExpandedRowTabs({ ...expandedRowTabs, [rowId]: 'batches' });
     }
     setExpandedRows(newExpandedRows);
   };
 
-  const setExpandedRowTab = (rowId: string, tab: 'info' | 'batches') => {
+  const setExpandedRowTab = (rowId: string, tab: 'batches' | 'info') => {
     setExpandedRowTabs({ ...expandedRowTabs, [rowId]: tab });
   };
 
@@ -564,8 +564,6 @@ export function DevBlendsheetOperations() {
                   <TableHead className="px-6 py-3">Blend-In Weight</TableHead>
                   <TableHead className="px-6 py-3">Blend-Out Weight</TableHead>
                   <TableHead className="px-6 py-3">No of Batches</TableHead>
-                  <TableHead className="px-6 py-3">Blend-In Time</TableHead>
-                  <TableHead className="px-6 py-3">Blend-Out Time</TableHead>
                   <TableHead className="px-6 py-3">Status & Efficiency</TableHead>
                 </TableRow>
               </TableHeader>
@@ -613,12 +611,6 @@ export function DevBlendsheetOperations() {
                               {item.batches.length}/{item.no_of_batches}
                             </span>
                           </TableCell>
-                          <TableCell className="px-6 py-4 text-sm text-gray-600">
-                            {getLatestBlendInTime(item)}
-                          </TableCell>
-                          <TableCell className="px-6 py-4 text-sm text-gray-600">
-                            {getLatestBlendOutTime(item)}
-                          </TableCell>
                           <TableCell className="px-6 py-4">
                             {(() => {
                               const status = getBlendsheetStatus(item);
@@ -656,36 +648,121 @@ export function DevBlendsheetOperations() {
                         {/* Expanded details with tabs */}
                         {expandedRows.has(item.blendsheet_no) && (
                             <TableRow key={`${item.blendsheet_no}-expanded`}>
-                              <TableCell colSpan={9} className="px-6 py-4 bg-gray-50">
+                              <TableCell colSpan={7} className="px-6 py-4 bg-gray-50">
                                 <div className="space-y-4">
-                                  {/* Tab Navigation - Only show Batch Details tab if not draft */}
+                                  {/* Tab Navigation */}
                                   <div className="flex items-center space-x-1 border-b border-gray-200">
+                                    <button
+                                      onClick={() => setExpandedRowTab(item.blendsheet_no, 'batches')}
+                                      className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                                        (expandedRowTabs[item.blendsheet_no] || 'batches') === 'batches'
+                                          ? 'border-tea-600 text-tea-600'
+                                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      Batch Details ({item.batches.length})
+                                    </button>
                                     <button
                                       onClick={() => setExpandedRowTab(item.blendsheet_no, 'info')}
                                       className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                                        (expandedRowTabs[item.blendsheet_no] || 'info') === 'info'
+                                        expandedRowTabs[item.blendsheet_no] === 'info'
                                           ? 'border-tea-600 text-tea-600'
                                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                       }`}
                                     >
                                       Mixture Details
                                     </button>
-                                    {getBlendsheetStatus(item) !== "DRAFT" && (
-                                      <button
-                                        onClick={() => setExpandedRowTab(item.blendsheet_no, 'batches')}
-                                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-                                          expandedRowTabs[item.blendsheet_no] === 'batches'
-                                            ? 'border-tea-600 text-tea-600'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                      >
-                                        Batch Details ({item.batches.length})
-                                      </button>
-                                    )}
                                   </div>
 
                                   {/* Tab Content */}
-                                  {(expandedRowTabs[item.blendsheet_no] || 'info') === 'info' ? (
+                                  {(expandedRowTabs[item.blendsheet_no] || 'batches') === 'batches' ? (
+                                    /* Batch Details Tab */
+                                    <div>
+                                      <h3 className="font-medium text-gray-900 mb-3">
+                                        Batch Details for {item.blendsheet_no}
+                                      </h3>
+
+                                      {item.batches.length > 0 ? (
+                                        <>
+                                          {/* Child Table Header */}
+                                          <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
+                                            <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
+                                              <div>Item Code</div>
+                                              <div>Blend-In Weight</div>
+                                              <div>Blend-In Time</div>
+                                              <div>Blend-Out Weight</div>
+                                              <div>Blend-Out Time</div>
+                                              <div>Status & Efficiency</div>
+                                            </div>
+                                          </div>
+
+                                          {/* Child Table Body - Using actual batch data */}
+                                          <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
+                                            {item.batches.map((batch) => {
+                                              const batchEfficiency = calculateBatchEfficiency(batch);
+
+                                              return (
+                                                <div
+                                                  key={batch.item_code}
+                                                  className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
+                                                >
+                                                  <div className="font-medium font-mono text-blue-600">
+                                                    {batch.item_code}
+                                                  </div>
+                                                  <div className="text-blue-600 font-medium">
+                                                    {formatWeight(batch.blend_in_weight)}
+                                                  </div>
+                                                  <div className="text-gray-700">
+                                                    {batch.status === 'ALLOCATE' ? (
+                                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                        Ongoing
+                                                      </span>
+                                                    ) : (
+                                                      batch.blend_in_time || '-'
+                                                    )}
+                                                  </div>
+                                                  <div className="text-green-600 font-medium">
+                                                    {batch.status === 'COMPLETED' || batch.status === 'RECEIVE'
+                                                      ? formatWeight(batch.blend_out_weight)
+                                                      : '-'}
+                                                  </div>
+                                                  <div className="text-gray-700">
+                                                    {batch.status === 'RECEIVE' ? (
+                                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                        Ongoing
+                                                      </span>
+                                                    ) : (
+                                                      batch.blend_out_time || '-'
+                                                    )}
+                                                  </div>
+                                                  <div>
+                                                    {batch.status !== 'COMPLETED' && (
+                                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                                                        In Progress
+                                                      </span>
+                                                    )}
+                                                    {batch.status === 'COMPLETED' && (
+                                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                        Completed
+                                                        {batchEfficiency
+                                                          ? ` • ${formatPercentage(batchEfficiency)}`
+                                                          : ""}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </>
+                                      ) : (
+                                        /* Empty state placeholder */
+                                        <div className="bg-white rounded-md border border-gray-200 p-8 text-center">
+                                          <p className="text-sm text-gray-500">No batches created yet</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
                                     /* Mixture Details Tab */
                                     <div className="space-y-3">
                                       {/* Header */}
@@ -790,72 +867,6 @@ export function DevBlendsheetOperations() {
                                           </div>
                                         </div>
                                       )}
-                                    </div>
-                                  ) : (
-                                    /* Batch Details Tab */
-                                    <div>
-                                      <h3 className="font-medium text-gray-900 mb-3">
-                                        Batch Details for {item.blendsheet_no}
-                                      </h3>
-
-                                      {/* Child Table Header */}
-                                      <div className="bg-gray-200 border border-gray-300 rounded-t-lg">
-                                        <div className="grid grid-cols-6 gap-4 p-3 text-sm font-medium text-gray-900">
-                                          <div>Item Code</div>
-                                          <div>Blend-In Weight</div>
-                                          <div>Blend-Out Weight</div>
-                                          <div>Blend-In Time</div>
-                                          <div>Blend-Out Time</div>
-                                          <div>Status & Efficiency</div>
-                                        </div>
-                                      </div>
-
-                                      {/* Child Table Body - Using actual batch data */}
-                                      <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
-                                        {item.batches.map((batch) => {
-                                          const batchEfficiency = calculateBatchEfficiency(batch);
-
-                                          return (
-                                            <div
-                                              key={batch.item_code}
-                                              className="grid grid-cols-6 gap-4 p-3 text-sm hover:bg-white"
-                                            >
-                                              <div className="font-medium font-mono text-blue-600">
-                                                {batch.item_code}
-                                              </div>
-                                              <div className="text-blue-600 font-medium">
-                                                {formatWeight(batch.blend_in_weight)}
-                                              </div>
-                                              <div className="text-green-600 font-medium">
-                                                {batch.status === 'COMPLETED'
-                                                  ? formatWeight(batch.blend_out_weight)
-                                                  : "-"}
-                                              </div>
-                                              <div className="text-sm text-gray-600">
-                                                {batch.blend_in_time}
-                                              </div>
-                                              <div className="text-sm text-gray-600">
-                                                {batch.blend_out_time || "-"}
-                                              </div>
-                                              <div>
-                                                {batch.status !== 'COMPLETED' && (
-                                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                                                    In Progress
-                                                  </span>
-                                                )}
-                                                {batch.status === 'COMPLETED' && (
-                                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                                    Completed
-                                                    {batchEfficiency
-                                                      ? ` • ${formatPercentage(batchEfficiency)}`
-                                                      : ""}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
                                     </div>
                                   )}
                                 </div>
