@@ -55,8 +55,9 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
     // Blend-in complete, now check blend-out for RECEIVE -> COMPLETED
     blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
 
-    // Target blend-out weight (99-100% of actual blend-in - mock tracking only)
-    const blendOutVariance = Math.random() * 0.01; // 0% to 1%
+    // Target blend-out weight (98-99.9% of actual blend-in - mock tracking only)
+    // Always has 0.1-2% loss, ensuring no batch reaches 100% efficiency
+    const blendOutVariance = 0.001 + Math.random() * 0.019; // 0.1% to 2%
     targetBlendOut = Math.floor(actualBlendIn * (1 - blendOutVariance) * 100) / 100;
 
     // Actual blend-out weight (what has actually been blended out - API field)

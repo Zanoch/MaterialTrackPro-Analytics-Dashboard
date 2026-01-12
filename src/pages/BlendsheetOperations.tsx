@@ -202,10 +202,10 @@ export function BlendsheetOperations() {
   };
 
   // Calculate blendsheet status based on batch data
-  const getBlendsheetStatus = (item: BlendsheetData): "DRAFT" | "IN_PROGRESS" | "COMPLETED" => {
-    // Draft if no batches created
+  const getBlendsheetStatus = (item: BlendsheetData): "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" => {
+    // Not Started if no batches created
     if (item.batches.length === 0) {
-      return "DRAFT";
+      return "NOT_STARTED";
     }
 
     // Completed if all batches are created AND all are marked as completed
@@ -221,14 +221,17 @@ export function BlendsheetOperations() {
   };
 
   // Calculate efficiency for a single batch (only if completed)
-  const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
+  // Efficiency is divided by total number of batches to get proportional contribution
+  const calculateBatchEfficiency = (batch: BlendsheetBatchData, no_of_batches: number): number | null => {
     if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0 || !batch.blend_out_weight) {
       return null;
     }
-    return (batch.blend_out_weight / batch.blend_in_weight) * 100;
+    const rawEfficiency = (batch.blend_out_weight / batch.blend_in_weight) * 100;
+    return rawEfficiency / no_of_batches;
   };
 
-  // Calculate overall blendsheet efficiency (average of completed batch efficiencies)
+  // Calculate overall blendsheet efficiency (sum of completed batch efficiencies)
+  // Each batch contributes a proportional share based on total batches
   const calculateBlendsheetEfficiency = (item: BlendsheetData): number | null => {
     const completedBatches = item.batches.filter((batch) => batch.status === 'COMPLETED');
 
@@ -237,14 +240,14 @@ export function BlendsheetOperations() {
     }
 
     const efficiencies = completedBatches
-      .map((batch) => calculateBatchEfficiency(batch))
+      .map((batch) => calculateBatchEfficiency(batch, item.no_of_batches))
       .filter((efficiency): efficiency is number => efficiency !== null);
 
     if (efficiencies.length === 0) {
       return null;
     }
 
-    return efficiencies.reduce((sum, eff) => sum + eff, 0) / efficiencies.length;
+    return efficiencies.reduce((sum, eff) => sum + eff, 0);
   };
 
   // Export functions
@@ -485,18 +488,18 @@ export function BlendsheetOperations() {
                       <React.Fragment key={item.blendsheet_no}>
                         <TableRow
                           onClick={
-                            getBlendsheetStatus(item) !== "DRAFT"
+                            getBlendsheetStatus(item) !== "NOT_STARTED"
                               ? () => toggleRowExpansion(item.blendsheet_no)
                               : undefined
                           }
                           className={
-                            getBlendsheetStatus(item) !== "DRAFT"
+                            getBlendsheetStatus(item) !== "NOT_STARTED"
                               ? "cursor-pointer hover:bg-gray-50"
                               : ""
                           }
                         >
                           <TableCell className="px-6 py-4">
-                            {getBlendsheetStatus(item) !== "DRAFT" ? (
+                            {getBlendsheetStatus(item) !== "NOT_STARTED" ? (
                               expandedRows.has(item.blendsheet_no) ? (
                                 <ChevronDown className="h-4 w-4 text-gray-500" />
                               ) : (
@@ -541,10 +544,10 @@ export function BlendsheetOperations() {
                               const status = getBlendsheetStatus(item);
                               const efficiency = calculateBlendsheetEfficiency(item);
 
-                              if (status === "DRAFT") {
+                              if (status === "NOT_STARTED") {
                                 return (
                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                    Draft
+                                    Not Started
                                   </span>
                                 );
                               }
@@ -572,7 +575,7 @@ export function BlendsheetOperations() {
 
                         {/* Expanded batch details - Only show if not in draft status */}
                         {expandedRows.has(item.blendsheet_no) &&
-                          getBlendsheetStatus(item) !== "DRAFT" && (
+                          getBlendsheetStatus(item) !== "NOT_STARTED" && (
                             <TableRow key={`${item.blendsheet_no}-expanded`}>
                               <TableCell colSpan={9} className="px-0 py-0 bg-gray-50">
                                 <div className="p-4">
@@ -595,7 +598,7 @@ export function BlendsheetOperations() {
                                   {/* Child Table Body - Using actual batch data */}
                                   <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
                                     {item.batches.map((batch) => {
-                                      const batchEfficiency = calculateBatchEfficiency(batch);
+                                      const batchEfficiency = calculateBatchEfficiency(batch, item.no_of_batches);
 
                                       return (
                                         <div

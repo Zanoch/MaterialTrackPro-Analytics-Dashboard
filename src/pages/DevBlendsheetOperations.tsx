@@ -216,10 +216,10 @@ export function DevBlendsheetOperations() {
   };
 
   // Calculate blendsheet status based on batch data
-  const getBlendsheetStatus = (item: BlendsheetData): "DRAFT" | "IN_PROGRESS" | "COMPLETED" => {
-    // Draft if no batches created
+  const getBlendsheetStatus = (item: BlendsheetData): "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" => {
+    // Not Started if no batches created
     if (item.batches.length === 0) {
-      return "DRAFT";
+      return "NOT_STARTED";
     }
 
     // Completed if all batches are created AND all are marked as completed
@@ -235,14 +235,17 @@ export function DevBlendsheetOperations() {
   };
 
   // Calculate efficiency for a single batch (only if completed)
-  const calculateBatchEfficiency = (batch: BlendsheetBatchData): number | null => {
+  // Efficiency is divided by total number of batches to get proportional contribution
+  const calculateBatchEfficiency = (batch: BlendsheetBatchData, no_of_batches: number): number | null => {
     if (batch.status !== 'COMPLETED' || batch.blend_in_weight === 0 || !batch.blend_out_weight) {
       return null;
     }
-    return (batch.blend_out_weight / batch.blend_in_weight) * 100;
+    const rawEfficiency = (batch.blend_out_weight / batch.blend_in_weight) * 100;
+    return rawEfficiency / no_of_batches;
   };
 
-  // Calculate overall blendsheet efficiency (average of completed batch efficiencies)
+  // Calculate overall blendsheet efficiency (sum of completed batch efficiencies)
+  // Each batch contributes a proportional share based on total batches
   const calculateBlendsheetEfficiency = (item: BlendsheetData): number | null => {
     const completedBatches = item.batches.filter((batch) => batch.status === 'COMPLETED');
 
@@ -251,14 +254,14 @@ export function DevBlendsheetOperations() {
     }
 
     const efficiencies = completedBatches
-      .map((batch) => calculateBatchEfficiency(batch))
+      .map((batch) => calculateBatchEfficiency(batch, item.no_of_batches))
       .filter((efficiency): efficiency is number => efficiency !== null);
 
     if (efficiencies.length === 0) {
       return null;
     }
 
-    return efficiencies.reduce((sum, eff) => sum + eff, 0) / efficiencies.length;
+    return efficiencies.reduce((sum, eff) => sum + eff, 0);
   };
 
   // Export functions
@@ -592,10 +595,10 @@ export function DevBlendsheetOperations() {
                               const status = getBlendsheetStatus(item);
                               const efficiency = calculateBlendsheetEfficiency(item);
 
-                              if (status === "DRAFT") {
+                              if (status === "NOT_STARTED") {
                                 return (
                                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                    Draft
+                                    Not Started
                                   </span>
                                 );
                               }
@@ -675,7 +678,7 @@ export function DevBlendsheetOperations() {
                                         <div className="border-x border-b border-gray-300 divide-y divide-gray-200 rounded-b-lg">
                                           {/* Render created batches */}
                                           {item.batches.map((batch) => {
-                                            const batchEfficiency = calculateBatchEfficiency(batch);
+                                            const batchEfficiency = calculateBatchEfficiency(batch, item.no_of_batches);
 
                                             return (
                                               <div
