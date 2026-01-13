@@ -48,7 +48,7 @@ export function DevBlendsheetOperations() {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('this_week');
-  const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'batches' | 'info'>>({});
+  const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'batches' | 'info' | 'allocations'>>({});
   const [expandedMixtureSections, setExpandedMixtureSections] = useState<Record<string, Set<string>>>({});
   const [expandedBatchAllocations, setExpandedBatchAllocations] = useState<Record<string, string | null>>({});
 
@@ -168,7 +168,7 @@ export function DevBlendsheetOperations() {
     }
   };
 
-  const setExpandedRowTab = (rowId: string, tab: 'batches' | 'info') => {
+  const setExpandedRowTab = (rowId: string, tab: 'batches' | 'info' | 'allocations') => {
     setExpandedRowTabs({ ...expandedRowTabs, [rowId]: tab });
   };
 

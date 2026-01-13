@@ -84,6 +84,7 @@ function generateMockBatch(
     status: status,
     target_blend_in_weight: targetBlendIn,
     target_blend_out_weight: targetBlendOut,
+    allocations: [],
   };
 }
 
@@ -170,7 +171,7 @@ function generateBatchAllocations(
   targetWeight: number,
   availableTealine: Map<string, TealineMixtureItem>,
   availableBlendbalance: Map<string, number>,
-  blendsheetNo: string,
+  _blendsheetNo: string,
   batchCreatedDate: Date
 ): BatchAllocation[] {
   // Convert to allocation sources array (ALL items broken into 60-80kg chunks)
