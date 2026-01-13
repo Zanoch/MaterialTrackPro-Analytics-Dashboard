@@ -2,19 +2,6 @@
 // Based on real API response structure
 import type { MockBlendsheetBatchData, MockBlendsheetData, TealineMixtureItem, MixtureAllocations, BatchAllocation } from '../types/blendsheet';
 
-// Helper interfaces for allocation tracking
-interface AllocationSource {
-  type: 'tealine' | 'blendbalance';
-  code: string;
-  weight: number; // For tealine: no_of_bags × weight_per_bag
-  bagInfo?: { no_of_bags: number; weight_per_bag: number }; // For tealine only
-}
-
-interface ItemPool {
-  tealine: Map<string, TealineMixtureItem>;
-  blendbalance: Map<string, number>;
-}
-
 function generateMockBatch(
   batchIndex: number,
   blendsheetNo: string,
@@ -150,121 +137,139 @@ function generateMockMixtureAllocations(): MixtureAllocations {
   return { tealine, blendbalance, officesample, blendsheet };
 }
 
-// Item pool management functions for allocation tracking
-function createItemPool(mixtures: MixtureAllocations): ItemPool {
-  return {
-    tealine: new Map(Object.entries(mixtures.tealine)),
-    blendbalance: new Map(Object.entries(mixtures.blendbalance)),
-  };
-}
+// Distribute allocations equally across all batches
+function distributeAllocationsEqually(
+  mixtures: MixtureAllocations,
+  numberOfBatches: number,
+  _blendsheetNo: string,
+  batchCreatedDate: Date
+): BatchAllocation[][] {
+  const batchAllocations: BatchAllocation[][] = Array.from({ length: numberOfBatches }, () => []);
 
-function removeFromPool(pool: ItemPool, allocation: BatchAllocation): void {
-  if (allocation.source_type === 'tealine') {
-    pool.tealine.delete(allocation.source_item_code);
-  } else if (allocation.source_type === 'blendbalance') {
-    pool.blendbalance.delete(allocation.source_item_code);
-  }
+  if (numberOfBatches === 0) return batchAllocations;
+
+  const formatDateTime = (date: Date) => {
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  };
+
+  // Distribute tealine: divide each item equally across batches
+  // Create individual bag allocation records
+  Object.entries(mixtures.tealine).forEach(([code, item]) => {
+    const bagsPerBatch = item.no_of_bags / numberOfBatches;
+    const fullBagsPerBatch = Math.floor(bagsPerBatch);
+    const fractionalBag = bagsPerBatch - fullBagsPerBatch;
+
+    for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
+      // Add full bags
+      for (let bagNum = 0; bagNum < fullBagsPerBatch; bagNum++) {
+        const sourceCreatedOffset = Math.floor(Math.random() * 30 + 7);
+        const sourceCreatedDate = new Date(
+          batchCreatedDate.getTime() - sourceCreatedOffset * 24 * 60 * 60 * 1000
+        );
+        const allocatedOffset = Math.floor(Math.random() * 20 + 5);
+        const allocatedDate = new Date(
+          batchCreatedDate.getTime() + allocatedOffset * 60 * 1000
+        );
+
+        batchAllocations[batchIndex].push({
+          id: crypto.randomUUID(),
+          source_type: 'tealine',
+          source_item_code: code,
+          source_created_ts: formatDateTime(sourceCreatedDate),
+          allocated_weight: item.weight_per_bag,
+          allocated_at: formatDateTime(allocatedDate),
+          grade: generateTeaGrade(),
+          notes: `1 bag × ${item.weight_per_bag} kg/bag`,
+        });
+      }
+
+      // Add fractional bag if exists
+      if (fractionalBag > 0) {
+        const fractionalWeight = Math.round(fractionalBag * item.weight_per_bag * 100) / 100;
+        const sourceCreatedOffset = Math.floor(Math.random() * 30 + 7);
+        const sourceCreatedDate = new Date(
+          batchCreatedDate.getTime() - sourceCreatedOffset * 24 * 60 * 60 * 1000
+        );
+        const allocatedOffset = Math.floor(Math.random() * 20 + 5);
+        const allocatedDate = new Date(
+          batchCreatedDate.getTime() + allocatedOffset * 60 * 1000
+        );
+
+        batchAllocations[batchIndex].push({
+          id: crypto.randomUUID(),
+          source_type: 'tealine',
+          source_item_code: code,
+          source_created_ts: formatDateTime(sourceCreatedDate),
+          allocated_weight: fractionalWeight,
+          allocated_at: formatDateTime(allocatedDate),
+          grade: generateTeaGrade(),
+          notes: `${Math.round(fractionalBag * 100) / 100} bags × ${item.weight_per_bag} kg/bag`,
+        });
+      }
+    }
+  });
+
+  // Distribute blendbalance equally across batches with 80kg max per bag
+  Object.entries(mixtures.blendbalance).forEach(([code, totalWeight]) => {
+    const weightPerBatch = totalWeight / numberOfBatches;
+    const MAX_BAG_WEIGHT = 80;
+
+    for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
+      // Calculate minimum bags needed
+      const minBags = Math.ceil(weightPerBatch / MAX_BAG_WEIGHT);
+
+      // Randomly choose bag count, exponentially biased towards minimum
+      // Using Math.pow(Math.random(), 2) to bias towards lower values
+      const extraBags = Math.floor(Math.pow(Math.random(), 2) * 3); // 0-2 extra bags, biased to 0
+      const numBags = minBags + extraBags;
+
+      // Distribute weight across bags with variance
+      const baseWeightPerBag = weightPerBatch / numBags;
+      let remainingWeight = weightPerBatch;
+
+      for (let bagNum = 0; bagNum < numBags; bagNum++) {
+        const isLastBag = bagNum === numBags - 1;
+
+        let bagWeight;
+        if (isLastBag) {
+          // Last bag gets remaining weight
+          bagWeight = Math.round(remainingWeight * 100) / 100;
+        } else {
+          // Add ±10% variance to base weight
+          const variance = (Math.random() - 0.5) * 0.2; // -10% to +10%
+          const variedWeight = baseWeightPerBag * (1 + variance);
+          // Ensure bag doesn't exceed 80kg
+          bagWeight = Math.min(Math.round(variedWeight * 100) / 100, MAX_BAG_WEIGHT);
+        }
+
+        const sourceCreatedOffset = Math.floor(Math.random() * 30 + 7);
+        const sourceCreatedDate = new Date(
+          batchCreatedDate.getTime() - sourceCreatedOffset * 24 * 60 * 60 * 1000
+        );
+        const allocatedOffset = Math.floor(Math.random() * 20 + 5);
+        const allocatedDate = new Date(
+          batchCreatedDate.getTime() + allocatedOffset * 60 * 1000
+        );
+
+        batchAllocations[batchIndex].push({
+          id: crypto.randomUUID(),
+          source_type: 'blendbalance',
+          source_item_code: code,
+          source_created_ts: formatDateTime(sourceCreatedDate),
+          allocated_weight: bagWeight,
+          allocated_at: formatDateTime(allocatedDate),
+          notes: undefined,
+        });
+
+        remainingWeight -= bagWeight;
+      }
+    }
+  });
+
+  return batchAllocations;
 }
 
 // Generate batch allocations from available mixture items
-function generateBatchAllocations(
-  targetWeight: number,
-  availableTealine: Map<string, TealineMixtureItem>,
-  availableBlendbalance: Map<string, number>,
-  _blendsheetNo: string,
-  batchCreatedDate: Date
-): BatchAllocation[] {
-  // Convert to allocation sources array (ALL items broken into 60-80kg chunks)
-  const sources: AllocationSource[] = [];
-
-  // Tealine sources - create one source PER BAG
-  for (const [code, item] of availableTealine.entries()) {
-    for (let bagNum = 0; bagNum < item.no_of_bags; bagNum++) {
-      sources.push({
-        type: 'tealine' as const,
-        code,
-        weight: item.weight_per_bag,
-        bagInfo: { no_of_bags: 1, weight_per_bag: item.weight_per_bag },
-      });
-    }
-  }
-
-  // Blendbalance sources - split into 60-80kg chunks
-  for (const [code, totalWeight] of availableBlendbalance.entries()) {
-    let remainingWeight = totalWeight;
-    while (remainingWeight > 0) {
-      // Random chunk size 60-80kg (or remaining if less)
-      const chunkSize = Math.min(
-        Math.floor(Math.random() * 21 + 60), // 60-80 kg
-        remainingWeight
-      );
-      sources.push({
-        type: 'blendbalance' as const,
-        code,
-        weight: chunkSize,
-      });
-      remainingWeight -= chunkSize;
-    }
-  }
-
-  // Sort by weight (descending) for greedy bin-packing
-  sources.sort((a, b) => b.weight - a.weight);
-
-  // Select sources using greedy bin-packing algorithm
-  const selectedSources: AllocationSource[] = [];
-  let remainingWeight = targetWeight;
-
-  for (const source of sources) {
-    if (remainingWeight <= 0) break;
-
-    // Take source if it fits (with small tolerance)
-    if (source.weight <= remainingWeight * 1.01) {
-      selectedSources.push(source);
-      remainingWeight -= source.weight;
-    }
-  }
-
-  // If we couldn't allocate anything, add at least one item
-  if (selectedSources.length === 0 && sources.length > 0) {
-    selectedSources.push(sources[sources.length - 1]); // Take smallest item
-  }
-
-  // Generate BatchAllocation records
-  return selectedSources.map((source) => {
-    // Generate realistic UUID barcode
-    const barcode = crypto.randomUUID();
-
-    // Source created 7-37 days before batch
-    const sourceCreatedOffset = Math.floor(Math.random() * 30 + 7);
-    const sourceCreatedDate = new Date(
-      batchCreatedDate.getTime() - sourceCreatedOffset * 24 * 60 * 60 * 1000
-    );
-
-    // Allocated 5-25 minutes after batch creation
-    const allocatedOffset = Math.floor(Math.random() * 20 + 5);
-    const allocatedDate = new Date(
-      batchCreatedDate.getTime() + allocatedOffset * 60 * 1000
-    );
-
-    const formatDateTime = (date: Date) => {
-      return date.toISOString().slice(0, 19).replace('T', ' ');
-    };
-
-    return {
-      id: barcode,
-      source_type: source.type,
-      source_item_code: source.code,
-      source_created_ts: formatDateTime(sourceCreatedDate),
-      allocated_weight: source.weight,
-      allocated_at: formatDateTime(allocatedDate),
-      grade: source.type === 'tealine' ? generateTeaGrade() : undefined,
-      notes: source.bagInfo
-        ? `1 bag × ${source.bagInfo.weight_per_bag} kg/bag`
-        : undefined,
-    };
-  });
-}
-
 function generateTeaGrade(): string {
   const grades = ['BOPF', 'BOP', 'FBOP', 'PEKOE', 'OP', 'DUST'];
   return grades[Math.floor(Math.random() * grades.length)];
@@ -381,21 +386,17 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
   // Step 6: Reduce drafts to 10% (was 20%) to ensure more data for time range tabs
   const batchesCreated = Math.random() > 0.1 ? Math.floor(Math.random() * (noOfBatches + 1)) : 0;
 
-  // Step 7: Generate batches using the calculated blend-in weights with allocations
-  // Create item pool for allocation tracking
-  const itemPool = createItemPool(mixture_allocations);
+  // Step 7: Generate batches with equally distributed allocations
+  // Distribute materials equally across ALL planned batches (noOfBatches, not batchesCreated)
+  const batchAllocations = distributeAllocationsEqually(
+    mixture_allocations,
+    noOfBatches,
+    blendsheetNo,
+    createdDate
+  );
 
   const batches = batchBlendInWeights.slice(0, batchesCreated).map((weight, i) => {
-    const targetBlendIn = weight;
-
-    // Generate allocations from available pool
-    const allocations = generateBatchAllocations(
-      targetBlendIn,
-      itemPool.tealine,
-      itemPool.blendbalance,
-      blendsheetNo,
-      createdDate
-    );
+    const allocations = batchAllocations[i];
 
     // Calculate actual allocated weight
     const actualAllocatedWeight = allocations.reduce(
@@ -403,22 +404,12 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
       0
     );
 
-    // Remove allocated items from pool
-    const removedItems = new Set<string>();
-    allocations.forEach(alloc => {
-      const itemKey = `${alloc.source_type}:${alloc.source_item_code}`;
-      if (!removedItems.has(itemKey)) {
-        removeFromPool(itemPool, alloc);
-        removedItems.add(itemKey);
-      }
-    });
-
     // Generate batch with actual allocated weight
     const batch = generateMockBatch(
       i,
       blendsheetNo,
       createdDate,
-      targetBlendIn,
+      weight,
       actualAllocatedWeight
     );
 
