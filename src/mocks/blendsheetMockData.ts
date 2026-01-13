@@ -26,39 +26,29 @@ function generateMockBatch(
   const blendOutDuration = Math.floor(Math.random() * 45 + 15);
   const blendOutEnd = new Date(blendOutStart.getTime() + blendOutDuration * 60 * 1000);
 
+  // Blend-in is always complete (actualBlendIn matches targetBlendIn)
+  const blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
+
+  // Calculate target blend-out with 0.1-2% loss
+  const blendOutVariance = 0.001 + Math.random() * 0.019;
+  const targetBlendOut = Math.floor(actualBlendIn * (1 - blendOutVariance) * 100) / 100;
+
   let status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
-  let blendInTimeValue, targetBlendOut, actualBlendOut, blendOutTimeValue;
+  let actualBlendOut: number | null;
+  let blendOutTimeValue: string | null;
 
-  // Determine status based on how close we got to target
-  const fulfillmentRatio = actualBlendIn / targetBlendIn;
-
-  if (fulfillmentRatio < 0.95) {
-    // ALLOCATE: Didn't reach target (less than 95%)
-    status = 'ALLOCATE';
-    blendInTimeValue = null;
-    targetBlendOut = null;
-    actualBlendOut = null;
+  // 30% RECEIVE, 70% COMPLETED
+  if (Math.random() > 0.70) {
+    // RECEIVE: Partial blend-out
+    const partialPercentage = Math.random() * 0.99;
+    actualBlendOut = Math.floor(targetBlendOut * partialPercentage * 100) / 100;
+    status = 'RECEIVE';
     blendOutTimeValue = null;
   } else {
-    // Blend-in target reached, proceed to RECEIVE/COMPLETED
-    blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
-
-    const blendOutVariance = 0.001 + Math.random() * 0.019; // 0.1-2% loss
-    targetBlendOut = Math.floor(actualBlendIn * (1 - blendOutVariance) * 100) / 100;
-
-    // 30% RECEIVE, 70% COMPLETED
-    if (Math.random() > 0.70) {
-      // RECEIVE: Partial blend-out
-      const partialPercentage = Math.random() * 0.99;
-      actualBlendOut = Math.floor(targetBlendOut * partialPercentage * 100) / 100;
-      status = 'RECEIVE';
-      blendOutTimeValue = null;
-    } else {
-      // COMPLETED: Full blend-out
-      actualBlendOut = targetBlendOut;
-      status = 'COMPLETED';
-      blendOutTimeValue = `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`;
-    }
+    // COMPLETED: Full blend-out
+    actualBlendOut = targetBlendOut;
+    status = 'COMPLETED';
+    blendOutTimeValue = `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`;
   }
 
   return {
@@ -412,6 +402,33 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
       weight,
       actualAllocatedWeight
     );
+
+    // 10% chance of batch being in ALLOCATE state (partial allocations)
+    if (Math.random() < 0.10) {
+      // Keep 50-95% of allocations randomly
+      const retentionPercentage = 0.5 + Math.random() * 0.45; // 0.5 to 0.95
+      const targetAllocationCount = Math.max(1, Math.floor(allocations.length * retentionPercentage));
+
+      // Randomly select which allocations to keep
+      const shuffledAllocations = [...allocations].sort(() => Math.random() - 0.5);
+      const partialAllocations = shuffledAllocations.slice(0, targetAllocationCount);
+
+      // Recalculate blend_in_weight from partial allocations
+      const partialBlendInWeight = partialAllocations.reduce(
+        (sum, alloc) => sum + alloc.allocated_weight,
+        0
+      );
+
+      return {
+        ...batch,
+        blend_in_weight: Math.round(partialBlendInWeight * 100) / 100,
+        blend_in_time: null,
+        blend_out_weight: null,
+        blend_out_time: null,
+        status: 'ALLOCATE' as const,
+        allocations: partialAllocations,
+      };
+    }
 
     return {
       ...batch,
