@@ -25,6 +25,21 @@ export interface BlendsheetBatchData {
 export interface MockBlendsheetBatchData extends BlendsheetBatchData {
   target_blend_in_weight: number; // Mock: target/expected blend-in weight for this batch
   target_blend_out_weight: number | null; // Mock: target/expected blend-out weight for this batch
+  allocations: BatchAllocation[]; // Mock: Track source items allocated to this batch
+}
+
+// Structured tealine item with weight conversion data
+export interface TealineMixtureItem {
+  no_of_bags: number;
+  weight_per_bag: number; // Random 60-80 kg
+}
+
+// Properly typed mixture allocations structure
+export interface MixtureAllocations {
+  tealine: Record<string, TealineMixtureItem>;
+  blendbalance: Record<string, number>;
+  officesample: Record<string, number>;
+  blendsheet: Record<string, number>;
 }
 
 // Extended blendsheet with calculated fields (API response)
@@ -40,7 +55,7 @@ export interface BlendsheetData {
 // Mock-specific blendsheet interface (uses mock batches)
 export interface MockBlendsheetData extends Omit<BlendsheetData, 'batches'> {
   batches: MockBlendsheetBatchData[];
-  mixture_allocations?: any; // Mock: mixture allocation data
+  mixture_allocations?: MixtureAllocations; // Mock: mixture allocation data
 }
 
 // Weight flow data for charts

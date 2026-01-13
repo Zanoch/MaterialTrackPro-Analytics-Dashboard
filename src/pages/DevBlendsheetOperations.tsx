@@ -50,6 +50,7 @@ export function DevBlendsheetOperations() {
   const [timeRange, setTimeRange] = useState<TimeRange>('this_week');
   const [expandedRowTabs, setExpandedRowTabs] = useState<Record<string, 'batches' | 'info'>>({});
   const [expandedMixtureSections, setExpandedMixtureSections] = useState<Record<string, Set<string>>>({});
+  const [expandedBatchAllocations, setExpandedBatchAllocations] = useState<Record<string, string | null>>({});
 
   // Get browser's timezone offset in ±HH:MM format
   const getBrowserTimezoneOffset = (): string => {
@@ -189,6 +190,18 @@ export function DevBlendsheetOperations() {
 
   const isMixtureSectionExpanded = (blendsheetNo: string, sectionName: string) => {
     return expandedMixtureSections[blendsheetNo]?.has(sectionName) || false;
+  };
+
+  const toggleBatchAllocation = (blendsheetNo: string, batchCode: string) => {
+    const currentExpanded = expandedBatchAllocations[blendsheetNo];
+    setExpandedBatchAllocations({
+      ...expandedBatchAllocations,
+      [blendsheetNo]: currentExpanded === batchCode ? null : batchCode
+    });
+  };
+
+  const isBatchAllocationExpanded = (blendsheetNo: string, batchCode: string) => {
+    return expandedBatchAllocations[blendsheetNo] === batchCode;
   };
 
   const formatWeight = (weight: number | undefined | null) => {
@@ -642,6 +655,16 @@ export function DevBlendsheetOperations() {
                                       Batch Details ({item.batches.length})
                                     </button>
                                     <button
+                                      onClick={() => setExpandedRowTab(item.blendsheet_no, 'allocations')}
+                                      className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                                        expandedRowTabs[item.blendsheet_no] === 'allocations'
+                                          ? 'border-tea-600 text-tea-600'
+                                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      Allocation Details
+                                    </button>
+                                    <button
                                       onClick={() => setExpandedRowTab(item.blendsheet_no, 'info')}
                                       className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
                                         expandedRowTabs[item.blendsheet_no] === 'info'
@@ -688,8 +711,24 @@ export function DevBlendsheetOperations() {
                                                 <div className="font-medium font-mono text-blue-600">
                                                   {batch.item_code}
                                                 </div>
-                                                <div className="text-blue-600 font-medium">
-                                                  {formatWeight(batch.blend_in_weight)}
+                                                <div className="flex flex-col">
+                                                  <span className="text-blue-600 font-medium">
+                                                    {formatWeight(batch.blend_in_weight)}
+                                                  </span>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedRowTab(item.blendsheet_no, 'allocations');
+                                                      // Expand this specific batch in the accordion
+                                                      setExpandedBatchAllocations({
+                                                        ...expandedBatchAllocations,
+                                                        [item.blendsheet_no]: batch.item_code
+                                                      });
+                                                    }}
+                                                    className="text-xs text-tea-600 hover:text-tea-700 hover:underline text-left mt-0.5"
+                                                  >
+                                                    View allocations →
+                                                  </button>
                                                 </div>
                                                 <div className="text-gray-700">
                                                   {batch.status === 'ALLOCATE' ? (
@@ -757,10 +796,73 @@ export function DevBlendsheetOperations() {
                                         </div>
                                       </>
                                     </div>
+                                  ) : expandedRowTabs[item.blendsheet_no] === 'allocations' ? (
+                                    /* Allocation Details Tab */
+                                    <div className="space-y-4">
+                                      <h3 className="font-medium text-gray-900">
+                                        Allocation Details for {item.blendsheet_no}
+                                      </h3>
+
+                                      {item.batches.map((batch: any) => (
+                                        <div key={batch.item_code} className="bg-white rounded-md border border-gray-200">
+                                          <div
+                                            className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100"
+                                            onClick={() => toggleBatchAllocation(item.blendsheet_no, batch.item_code)}
+                                          >
+                                            <h4 className="font-medium text-sm text-gray-900">
+                                              Batch {batch.item_code} ({batch.allocations?.length || 0} allocations)
+                                            </h4>
+                                            {isBatchAllocationExpanded(item.blendsheet_no, batch.item_code) ? (
+                                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4 text-gray-500" />
+                                            )}
+                                          </div>
+                                          {isBatchAllocationExpanded(item.blendsheet_no, batch.item_code) && (
+                                            <div className="p-4">
+                                              {batch.allocations && batch.allocations.length > 0 ? (
+                                                <div className="overflow-x-auto">
+                                                  <table className="w-full text-sm">
+                                                    <thead>
+                                                      <tr className="border-b border-gray-200 bg-gray-50">
+                                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700">Item Code</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700">Source Type</th>
+                                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">Weight</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                      {batch.allocations.map((alloc: any) => (
+                                                        <tr key={alloc.id} className="hover:bg-gray-50">
+                                                          <td className="px-3 py-2">
+                                                            <div className="flex flex-col">
+                                                              <span className="font-mono text-xs text-gray-900">{alloc.source_item_code}</span>
+                                                              <span className="font-mono text-[10px] text-gray-500">{alloc.id}</span>
+                                                            </div>
+                                                          </td>
+                                                          <td className="px-3 py-2">
+                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                                              {alloc.source_type}
+                                                            </span>
+                                                          </td>
+                                                          <td className="px-3 py-2 text-right font-semibold">{formatWeight(alloc.allocated_weight)}</td>
+                                                        </tr>
+                                                      ))}
+                                                    </tbody>
+                                                  </table>
+                                                </div>
+                                              ) : (
+                                                <p className="text-sm text-gray-500 italic py-2">
+                                                  No allocations recorded (batch in ALLOCATE status or not yet started)
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
                                   ) : (
-                                    /* Mixture Details Tab */
+                                    /* Mixture Details Tab (moved to third position) */
                                     <div className="space-y-3">
-                                      {/* Header */}
                                       <h3 className="font-medium text-gray-900">
                                         Mixture Details for {item.blendsheet_no}
                                       </h3>
@@ -792,15 +894,38 @@ export function DevBlendsheetOperations() {
                                                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-700">
                                                       No. of Bags
                                                     </th>
+                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-700">
+                                                      Weight/Bag
+                                                    </th>
+                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-700">
+                                                      Total Weight
+                                                    </th>
                                                   </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-100">
-                                                  {Object.entries((item as any).mixture_allocations.tealine).map(([mixtureCode, noOfBags]: [string, any], idx: number) => (
-                                                    <tr key={idx} className="hover:bg-gray-50">
-                                                      <td className="px-4 py-2 text-sm font-mono text-gray-900">{mixtureCode}</td>
-                                                      <td className="px-4 py-2 text-sm font-mono text-gray-900 text-right">{noOfBags}</td>
-                                                    </tr>
-                                                  ))}
+                                                  {Object.entries((item as any).mixture_allocations.tealine).map(([mixtureCode, itemData]: [string, any], idx: number) => {
+                                                    // Handle both old format (number) and new format (object) for backward compatibility
+                                                    const noOfBags = typeof itemData === 'number' ? itemData : itemData.no_of_bags;
+                                                    const weightPerBag = typeof itemData === 'number' ? null : itemData.weight_per_bag;
+                                                    const totalWeight = weightPerBag ? noOfBags * weightPerBag : null;
+
+                                                    return (
+                                                      <tr key={idx} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                                                          {mixtureCode}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm font-mono text-gray-900 text-right">
+                                                          {noOfBags}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm text-gray-600 text-right">
+                                                          {weightPerBag ? `${weightPerBag} kg/bag` : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">
+                                                          {totalWeight ? `${totalWeight.toFixed(2)} kg` : '-'}
+                                                        </td>
+                                                      </tr>
+                                                    );
+                                                  })}
                                                 </tbody>
                                               </table>
                                             </div>

@@ -1,79 +1,75 @@
 // Mock blendsheet operations data for dev panel testing
 // Based on real API response structure
-import type { MockBlendsheetBatchData, MockBlendsheetData } from '../types/blendsheet';
+import type { MockBlendsheetBatchData, MockBlendsheetData, TealineMixtureItem, MixtureAllocations, BatchAllocation } from '../types/blendsheet';
 
-function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate: Date, targetBlendInWeight: number): MockBlendsheetBatchData {
-  // Target blend-in weight (what should be blended in for this batch - mock tracking only)
+// Helper interfaces for allocation tracking
+interface AllocationSource {
+  type: 'tealine' | 'blendbalance';
+  code: string;
+  weight: number; // For tealine: no_of_bags × weight_per_bag
+  bagInfo?: { no_of_bags: number; weight_per_bag: number }; // For tealine only
+}
+
+interface ItemPool {
+  tealine: Map<string, TealineMixtureItem>;
+  blendbalance: Map<string, number>;
+}
+
+function generateMockBatch(
+  batchIndex: number,
+  blendsheetNo: string,
+  createdDate: Date,
+  targetBlendInWeight: number,
+  actualBlendInWeight: number
+): MockBlendsheetBatchData {
   const targetBlendIn = targetBlendInWeight;
-
-  // Actual blend-in weight (what has actually been blended in - API field)
-  // 90% have full weight, 10% have partial (including zero)
-  let actualBlendIn: number;
-  if (Math.random() > 0.10) {
-    // 90% - Full target weight (will proceed to RECEIVE or COMPLETED)
-    actualBlendIn = targetBlendIn;
-  } else {
-    // 10% - Partial weight (0-99% of target) -> ALLOCATE status
-    const partialPercentage = Math.random() * 0.99; // 0% to 99%
-    actualBlendIn = Math.floor(targetBlendIn * partialPercentage * 100) / 100;
-  }
+  const actualBlendIn = actualBlendInWeight;
 
   const formatDateTime = (date: Date) => {
     return date.toISOString().slice(0, 19).replace('T', ' ');
   };
 
-  // Calculate timing data (blend-out always after blend-in, no overlap)
-  // Blend-in starts shortly after batch creation (5-30 minutes)
-  const blendInStartDelay = Math.floor(Math.random() * 25 + 5); // 5-30 minutes
+  // Calculate timing data
+  const blendInStartDelay = Math.floor(Math.random() * 25 + 5);
   const blendInStart = new Date(createdDate.getTime() + blendInStartDelay * 60 * 1000);
-
-  // Blend-in duration is 10-30 minutes
-  const blendInDuration = Math.floor(Math.random() * 20 + 10); // 10-30 minutes
+  const blendInDuration = Math.floor(Math.random() * 20 + 10);
   const blendInEnd = new Date(blendInStart.getTime() + blendInDuration * 60 * 1000);
-
-  // Blend-out starts 20-45 minutes AFTER blend-in ends (no overlap)
-  const blendOutDelay = Math.floor(Math.random() * 25 + 20); // 20-45 minutes
+  const blendOutDelay = Math.floor(Math.random() * 25 + 20);
   const blendOutStart = new Date(blendInEnd.getTime() + blendOutDelay * 60 * 1000);
-
-  // Blend-out duration is 15-60 minutes
-  const blendOutDuration = Math.floor(Math.random() * 45 + 15); // 15-60 minutes
+  const blendOutDuration = Math.floor(Math.random() * 45 + 15);
   const blendOutEnd = new Date(blendOutStart.getTime() + blendOutDuration * 60 * 1000);
 
-  // Status transition logic: ALLOCATE -> RECEIVE -> COMPLETED
   let status: 'ALLOCATE' | 'RECEIVE' | 'COMPLETED';
   let blendInTimeValue, targetBlendOut, actualBlendOut, blendOutTimeValue;
 
-  // Step 1: ALLOCATE -> RECEIVE (based on blend-in fulfillment)
-  if (actualBlendIn < targetBlendIn) {
-    // ALLOCATE: blend-in not fulfilled
+  // Determine status based on how close we got to target
+  const fulfillmentRatio = actualBlendIn / targetBlendIn;
+
+  if (fulfillmentRatio < 0.95) {
+    // ALLOCATE: Didn't reach target (less than 95%)
     status = 'ALLOCATE';
     blendInTimeValue = null;
     targetBlendOut = null;
     actualBlendOut = null;
     blendOutTimeValue = null;
   } else {
-    // Blend-in complete, now check blend-out for RECEIVE -> COMPLETED
+    // Blend-in target reached, proceed to RECEIVE/COMPLETED
     blendInTimeValue = `${formatDateTime(blendInStart)} - ${formatDateTime(blendInEnd)}`;
 
-    // Target blend-out weight (98-99.9% of actual blend-in - mock tracking only)
-    // Always has 0.1-2% loss, ensuring no batch reaches 100% efficiency
-    const blendOutVariance = 0.001 + Math.random() * 0.019; // 0.1% to 2%
+    const blendOutVariance = 0.001 + Math.random() * 0.019; // 0.1-2% loss
     targetBlendOut = Math.floor(actualBlendIn * (1 - blendOutVariance) * 100) / 100;
 
-    // Actual blend-out weight (what has actually been blended out - API field)
-    // Of the 90% that complete blend-in: 30% RECEIVE, 70% COMPLETED
+    // 30% RECEIVE, 70% COMPLETED
     if (Math.random() > 0.70) {
-      // 30% (of 90%) - RECEIVE: Partial blend-out (0-99% of target)
-      const partialPercentage = Math.random() * 0.99; // 0% to 99%
+      // RECEIVE: Partial blend-out
+      const partialPercentage = Math.random() * 0.99;
       actualBlendOut = Math.floor(targetBlendOut * partialPercentage * 100) / 100;
       status = 'RECEIVE';
-      // Blend-out time not recorded yet (still in progress)
       blendOutTimeValue = null;
     } else {
-      // 70% (of 90%) - COMPLETED: Full blend-out
+      // COMPLETED: Full blend-out
       actualBlendOut = targetBlendOut;
       status = 'COMPLETED';
-      // Blend-out time recorded when completed
       blendOutTimeValue = `${formatDateTime(blendOutStart)} - ${formatDateTime(blendOutEnd)}`;
     }
   }
@@ -81,13 +77,13 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
   return {
     item_code: `${blendsheetNo}/${batchIndex + 1}`,
     created_ts: createdDate,
-    blend_in_weight: actualBlendIn, // API: Actual blend-in weight received
-    blend_in_time: blendInTimeValue, // null for ALLOCATE
-    blend_out_weight: actualBlendOut, // API: null for ALLOCATE, partial for RECEIVE, full for COMPLETED
-    blend_out_time: blendOutTimeValue, // null for ALLOCATE/RECEIVE, recorded for COMPLETED
+    blend_in_weight: actualBlendIn,
+    blend_in_time: blendInTimeValue,
+    blend_out_weight: actualBlendOut,
+    blend_out_time: blendOutTimeValue,
     status: status,
-    target_blend_in_weight: targetBlendIn, // Mock: Target/expected blend-in weight
-    target_blend_out_weight: targetBlendOut, // Mock: Target/expected blend-out weight
+    target_blend_in_weight: targetBlendIn,
+    target_blend_out_weight: targetBlendOut,
   };
 }
 
@@ -99,10 +95,10 @@ function generateMockBatch(batchIndex: number, blendsheetNo: string, createdDate
 // - Blendbalance: Stored as mixture_code + weight (kg)
 //   - 1-10 mixture items, 8-1230 kg per item
 //   - Item codes: BS/2024/0533/1
-function generateMockMixtureAllocations() {
+function generateMockMixtureAllocations(): MixtureAllocations {
   // Tealine mixture: ALWAYS has 1-11 mixture items (required for all blendsheets)
   const tealineCount = Math.floor(Math.random() * 10) + 1; // 1-11 items (guaranteed at least 1)
-  const tealine: Record<string, number> = {};
+  const tealine: Record<string, TealineMixtureItem> = {};
 
   for (let i = 0; i < tealineCount; i++) {
     // Real pattern: T240487, I230066
@@ -115,7 +111,14 @@ function generateMockMixtureAllocations() {
     const noOfBags = Math.random() > 0.9
       ? Math.floor(Math.random() * 70) + 30  // 30-100 bags (10%)
       : Math.floor(Math.random() * 30) + 1;   // 1-30 bags (90%)
-    tealine[mixtureCode] = noOfBags;
+
+    // Weight per bag: 60-80 kg (random per item)
+    const weightPerBag = Math.floor(Math.random() * 20 + 60); // 60-80 kg
+
+    tealine[mixtureCode] = {
+      no_of_bags: noOfBags,
+      weight_per_bag: weightPerBag
+    };
   }
 
   // Blendbalance mixture: Not always present, 1-10 items with weights
@@ -146,6 +149,162 @@ function generateMockMixtureAllocations() {
   return { tealine, blendbalance, officesample, blendsheet };
 }
 
+// Item pool management functions for allocation tracking
+function createItemPool(mixtures: MixtureAllocations): ItemPool {
+  return {
+    tealine: new Map(Object.entries(mixtures.tealine)),
+    blendbalance: new Map(Object.entries(mixtures.blendbalance)),
+  };
+}
+
+function removeFromPool(pool: ItemPool, allocation: BatchAllocation): void {
+  if (allocation.source_type === 'tealine') {
+    pool.tealine.delete(allocation.source_item_code);
+  } else if (allocation.source_type === 'blendbalance') {
+    pool.blendbalance.delete(allocation.source_item_code);
+  }
+}
+
+// Generate batch allocations from available mixture items
+function generateBatchAllocations(
+  targetWeight: number,
+  availableTealine: Map<string, TealineMixtureItem>,
+  availableBlendbalance: Map<string, number>,
+  blendsheetNo: string,
+  batchCreatedDate: Date
+): BatchAllocation[] {
+  // Convert to allocation sources array (ALL items broken into 60-80kg chunks)
+  const sources: AllocationSource[] = [];
+
+  // Tealine sources - create one source PER BAG
+  for (const [code, item] of availableTealine.entries()) {
+    for (let bagNum = 0; bagNum < item.no_of_bags; bagNum++) {
+      sources.push({
+        type: 'tealine' as const,
+        code,
+        weight: item.weight_per_bag,
+        bagInfo: { no_of_bags: 1, weight_per_bag: item.weight_per_bag },
+      });
+    }
+  }
+
+  // Blendbalance sources - split into 60-80kg chunks
+  for (const [code, totalWeight] of availableBlendbalance.entries()) {
+    let remainingWeight = totalWeight;
+    while (remainingWeight > 0) {
+      // Random chunk size 60-80kg (or remaining if less)
+      const chunkSize = Math.min(
+        Math.floor(Math.random() * 21 + 60), // 60-80 kg
+        remainingWeight
+      );
+      sources.push({
+        type: 'blendbalance' as const,
+        code,
+        weight: chunkSize,
+      });
+      remainingWeight -= chunkSize;
+    }
+  }
+
+  // Sort by weight (descending) for greedy bin-packing
+  sources.sort((a, b) => b.weight - a.weight);
+
+  // Select sources using greedy bin-packing algorithm
+  const selectedSources: AllocationSource[] = [];
+  let remainingWeight = targetWeight;
+
+  for (const source of sources) {
+    if (remainingWeight <= 0) break;
+
+    // Take source if it fits (with small tolerance)
+    if (source.weight <= remainingWeight * 1.01) {
+      selectedSources.push(source);
+      remainingWeight -= source.weight;
+    }
+  }
+
+  // If we couldn't allocate anything, add at least one item
+  if (selectedSources.length === 0 && sources.length > 0) {
+    selectedSources.push(sources[sources.length - 1]); // Take smallest item
+  }
+
+  // Generate BatchAllocation records
+  return selectedSources.map((source) => {
+    // Generate realistic UUID barcode
+    const barcode = crypto.randomUUID();
+
+    // Source created 7-37 days before batch
+    const sourceCreatedOffset = Math.floor(Math.random() * 30 + 7);
+    const sourceCreatedDate = new Date(
+      batchCreatedDate.getTime() - sourceCreatedOffset * 24 * 60 * 60 * 1000
+    );
+
+    // Allocated 5-25 minutes after batch creation
+    const allocatedOffset = Math.floor(Math.random() * 20 + 5);
+    const allocatedDate = new Date(
+      batchCreatedDate.getTime() + allocatedOffset * 60 * 1000
+    );
+
+    const formatDateTime = (date: Date) => {
+      return date.toISOString().slice(0, 19).replace('T', ' ');
+    };
+
+    return {
+      id: barcode,
+      source_type: source.type,
+      source_item_code: source.code,
+      source_created_ts: formatDateTime(sourceCreatedDate),
+      allocated_weight: source.weight,
+      allocated_at: formatDateTime(allocatedDate),
+      grade: source.type === 'tealine' ? generateTeaGrade() : undefined,
+      notes: source.bagInfo
+        ? `1 bag × ${source.bagInfo.weight_per_bag} kg/bag`
+        : undefined,
+    };
+  });
+}
+
+function generateTeaGrade(): string {
+  const grades = ['BOPF', 'BOP', 'FBOP', 'PEKOE', 'OP', 'DUST'];
+  return grades[Math.floor(Math.random() * grades.length)];
+}
+
+/**
+ * Calculate total planned weight from mixture allocations
+ * @param mixtures - Mixture allocations with tealine, blendbalance, etc.
+ * @returns Total weight in kg (rounded to 2 decimals)
+ */
+function calculatePlannedWeightFromMixtures(mixtures: MixtureAllocations): number {
+  // Tealine: sum(bags × weight_per_bag)
+  const tealineWeight = Object.values(mixtures.tealine).reduce(
+    (sum, item) => sum + (item.no_of_bags * item.weight_per_bag),
+    0
+  );
+
+  // Blendbalance: sum(weights in kg)
+  const blendbalanceWeight = Object.values(mixtures.blendbalance).reduce(
+    (sum, weight) => sum + weight,
+    0
+  );
+
+  // Officesample: sum(weights) - currently always 0
+  const officesampleWeight = Object.values(mixtures.officesample).reduce(
+    (sum, weight) => sum + weight,
+    0
+  );
+
+  // Blendsheet: sum(weights) - currently always 0
+  const blendsheetWeight = Object.values(mixtures.blendsheet).reduce(
+    (sum, weight) => sum + weight,
+    0
+  );
+
+  const totalWeight = tealineWeight + blendbalanceWeight + officesampleWeight + blendsheetWeight;
+
+  // Round to 2 decimal places for consistency
+  return Math.floor(totalWeight * 100) / 100;
+}
+
 function generateMockBlendsheet(index: number): MockBlendsheetData {
   const year = 2025;
   const blendsheetNo = `BS/${year}/${String(600 + index).padStart(4, '0')}`;
@@ -168,11 +327,17 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
     'High-grade blend',
   ];
 
-  // Step 1: Generate raw values
-  const plannedWeight = Math.floor(Math.random() * 2000 + 200 * 100) / 100; // 200-2200 kg with decimals
+  // Step 1: Generate mixture allocations FIRST
+  // ALL blendsheets have mixture data (including drafts) - mixture comes before batches
+  const mixture_allocations = generateMockMixtureAllocations();
+
+  // Step 2: Calculate planned weight FROM mixtures
+  const plannedWeight = calculatePlannedWeightFromMixtures(mixture_allocations);
+
+  // Step 3: Generate number of batches
   const noOfBatches = Math.floor(Math.random() * 4) + 1; // 1-5 batches
 
-  // Step 2: Distribute planned weight exactly evenly across all batches (no variance)
+  // Step 4: Distribute planned weight exactly evenly across all batches (no variance)
   // All batches should have equal blend-in weights that sum to planned weight
   const batchBlendInWeights: number[] = [];
   const weightPerBatch = Math.floor((plannedWeight / noOfBatches) * 100) / 100; // Rounded to 2 decimals
@@ -189,7 +354,7 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
     }
   }
 
-  // Distribute dates across different time ranges to ensure all tabs have data:
+  // Step 5: Distribute dates across different time ranges to ensure all tabs have data
   // - 30% in last 7 days (this week)
   // - 30% in last 30 days (this month)
   // - 25% in last 90 days (this year)
@@ -212,17 +377,55 @@ function generateMockBlendsheet(index: number): MockBlendsheetData {
 
   const createdDate = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 
-  // Generate mixture data first (this determines planned weight)
-  // ALL blendsheets have mixture data (including drafts) - mixture comes before batches
-  const mixture_allocations = generateMockMixtureAllocations();
-
-  // Reduce drafts to 10% (was 20%) to ensure more data for time range tabs
+  // Step 6: Reduce drafts to 10% (was 20%) to ensure more data for time range tabs
   const batchesCreated = Math.random() > 0.1 ? Math.floor(Math.random() * (noOfBatches + 1)) : 0;
 
-  // Step 4: Generate batches using the calculated blend-in weights
-  const batches = batchBlendInWeights.slice(0, batchesCreated).map((weight, i) =>
-    generateMockBatch(i, blendsheetNo, createdDate, weight)
-  );
+  // Step 7: Generate batches using the calculated blend-in weights with allocations
+  // Create item pool for allocation tracking
+  const itemPool = createItemPool(mixture_allocations);
+
+  const batches = batchBlendInWeights.slice(0, batchesCreated).map((weight, i) => {
+    const targetBlendIn = weight;
+
+    // Generate allocations from available pool
+    const allocations = generateBatchAllocations(
+      targetBlendIn,
+      itemPool.tealine,
+      itemPool.blendbalance,
+      blendsheetNo,
+      createdDate
+    );
+
+    // Calculate actual allocated weight
+    const actualAllocatedWeight = allocations.reduce(
+      (sum, alloc) => sum + alloc.allocated_weight,
+      0
+    );
+
+    // Remove allocated items from pool
+    const removedItems = new Set<string>();
+    allocations.forEach(alloc => {
+      const itemKey = `${alloc.source_type}:${alloc.source_item_code}`;
+      if (!removedItems.has(itemKey)) {
+        removeFromPool(itemPool, alloc);
+        removedItems.add(itemKey);
+      }
+    });
+
+    // Generate batch with actual allocated weight
+    const batch = generateMockBatch(
+      i,
+      blendsheetNo,
+      createdDate,
+      targetBlendIn,
+      actualAllocatedWeight
+    );
+
+    return {
+      ...batch,
+      allocations,
+    };
+  });
 
   return {
     blendsheet_no: blendsheetNo,
