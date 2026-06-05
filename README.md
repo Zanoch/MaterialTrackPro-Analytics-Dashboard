@@ -50,9 +50,13 @@ The development server starts at `http://localhost:5173`. A production build is 
 npm run build
 ```
 
-The `dist/` output is uploaded to the S3 bucket provisioned by AWS-Manager. See [AWS-Manager](../MaterialTrackPro-AWS-Manager/README.md) for the bucket details and upload instructions.
+The `dist/` output is uploaded to the `/analytics-dashboard` prefix of the shared S3 bucket provisioned by AWS-Manager. See [Web Client Hosting](../MaterialTrackPro-AWS-Manager/docs/architecture.md#web-client-hosting) for the bucket name and distribution ID.
 
-After uploading, invalidate the CloudFront distribution associated with the bucket to ensure the updated files are served:
+```bash
+aws s3 sync dist/ s3://<BUCKET_NAME>/analytics-dashboard/ --delete
+```
+
+After uploading, invalidate the CloudFront distribution to ensure the updated files are served:
 
 ```bash
 aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "/*"
